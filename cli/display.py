@@ -6,6 +6,7 @@ import os
 from typing import TYPE_CHECKING
 
 from plo_engine.types import cards_to_str
+from plo_engine.hand_evaluator import best_plo_hand, category_of
 from plo_engine.betting import ActionType, HandPhase
 
 if TYPE_CHECKING:
@@ -210,29 +211,55 @@ def display_hand_result(history: HandHistory) -> None:
     print(f"  {BOLD}Hand Result{RESET}")
     print(f"  {'':─<40}")
 
-    # Use describe() for the full narrative
-    desc = history.describe()
-    # Extract just the results section for brevity
-    in_results = False
-    for line in desc.split("\n"):
-        if "*** RESULTS ***" in line:
-            in_results = True
-            continue
-        if in_results:
-            # Color profit/loss
-            if "+" in line and any(c.isdigit() for c in line):
-                print(f"  \033[32m{line}\033[0m")  # green for profit
-            elif line.strip().startswith("Seat") and "-" in line:
-                print(f"  \033[31m{line}\033[0m")  # red for loss
-            else:
-                print(f"  {line}")
-
     # Show board if there was one
     if history.board_cards:
         board_str = _colorize_cards(cards_to_str(history.board_cards))
-        print(f"\n  Board: [{board_str}]")
+        print(f"  Board: [{board_str}]")
+        print()
 
-    # Show net profit for hero (seat 0 assumed)
+    # Showdown: show all non-folded players' hands
+    if history.result.went_to_showdown and len(history.board_cards) == 5:
+        # Collect folded seats from actions
+        folded_seats: set[int] = set()
+        for action in history.actions:
+            if action.action_type == ActionType.FOLD:
+                folded_seats.add(action.player_seat)
+
+        # Determine winning seats
+        winning_seats: set[int] = set()
+        for sr in history.result.showdown_results:
+            winning_seats.update(sr.winners)
+
+        print(f"  {BOLD}Showdown{RESET}")
+        for seat in sorted(history.hole_cards):
+            if seat in folded_seats:
+                continue
+            cards = history.hole_cards[seat]
+            name = history.table_config.get("names", {}).get(str(seat), f"Seat {seat}")
+            card_str = _colorize_cards(cards_to_str(cards))
+            hand_desc = _describe_hand_category(cards, history.board_cards)
+            winner_tag = f"  {BOLD}\033[33m★ WINNER{RESET}" if seat in winning_seats else ""
+            print(f"    {name:<12} [{card_str}]  {DIM}{hand_desc}{RESET}{winner_tag}")
+        print()
+
+    elif not history.result.went_to_showdown:
+        winner = history.result.winning_seat
+        if winner is not None:
+            name = history.table_config.get("names", {}).get(str(winner), f"Seat {winner}")
+            print(f"  {name} wins — everyone else folded")
+            print()
+
+    # Profit/loss summary
+    for seat, profit in sorted(history.result.net_profit.items()):
+        name = history.table_config.get("names", {}).get(str(seat), f"Seat {seat}")
+        if profit > 0:
+            print(f"  \033[32m  {name:<12} +${profit:.0f}\033[0m")
+        elif profit < 0:
+            print(f"  \033[31m  {name:<12} -${abs(profit):.0f}\033[0m")
+        else:
+            print(f"  {DIM}  {name:<12}  $0{RESET}")
+
+    # Hero summary line
     for seat, profit in sorted(history.result.net_profit.items()):
         name = history.table_config.get("names", {}).get(str(seat), f"Seat {seat}")
         if name == "You":
@@ -253,6 +280,29 @@ def display_standings(standings: list[tuple[str, float]]) -> None:
         marker = " <--" if name == "You" else ""
         print(f"  {i}. {name:<12} ${stack:>8.0f}{marker}")
     print()
+
+
+_HAND_CATEGORY_NAMES = {
+    0: "high card",
+    1: "one pair",
+    2: "two pair",
+    3: "three of a kind",
+    4: "straight",
+    5: "flush",
+    6: "full house",
+    7: "four of a kind",
+    8: "straight flush",
+}
+
+
+def _describe_hand_category(hole_cards: tuple, board: tuple) -> str:
+    """Return a short description of the best 5-card hand."""
+    try:
+        rank = best_plo_hand(hole_cards, board)
+        cat = category_of(rank)
+        return _HAND_CATEGORY_NAMES.get(cat, "unknown")
+    except Exception:
+        return ""
 
 
 def display_welcome() -> None:
