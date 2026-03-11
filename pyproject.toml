@@ -1,14 +1,17 @@
 [project]
-name = "plo-engine"
+name = "upstream-people"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
     "jax>=0.4.20",
     "jaxlib>=0.4.20",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "websockets>=14.0",
 ]
 
 [tool.setuptools.packages.find]
-include = ["plo_engine*", "cli*"]
+include = ["plo_engine*", "cli*", "server*"]
 
 [project.optional-dependencies]
 dev = [
