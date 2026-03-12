@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/components/shared/card.tsx","./src/components/shared/layout.tsx","./src/pages/lab.tsx","./src/pages/lobby.tsx","./src/pages/rangeroom.tsx","./src/pages/strategymap.tsx","./src/pages/tableroom.tsx","./src/theme/tokens.ts"],"version":"5.7.3"}

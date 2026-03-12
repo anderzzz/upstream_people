@@ -1,177 +1,89 @@
 /**
  * Strategy Map — game trees, CFR convergence, Nash equilibria.
- *
- * Will host: interactive game tree (D3 hierarchical layout),
- * regret/EV time-series, strategy frequency charts, exploitability curves.
- *
- * The math nerd room.
  */
 
-import { color, font } from "../theme/tokens.ts";
+import { color, font, transition } from "../theme/tokens.ts";
 
 export function StrategyMap() {
   return (
-    <div style={{ padding: "2rem", maxWidth: 1200, margin: "0 auto" }}>
-      <h1
-        style={{
-          fontFamily: font.mono,
-          fontSize: "1rem",
-          fontWeight: 500,
-          color: color.accent.emerald,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          marginBottom: "1.5rem",
-        }}
-      >
-        Strategy Map
-      </h1>
+    <div style={styles.page}>
+      <div style={styles.header}>
+        <h1 style={styles.title}>Strategy Map</h1>
+        <p style={styles.subtitle}>Game trees. Nash equilibria. Solver convergence.</p>
+      </div>
 
-      <div style={{ display: "flex", gap: "1rem" }}>
+      <div style={styles.layout}>
         {/* Left: game tree */}
-        <div
-          style={{
-            flex: 3,
-            background: color.bg.surface,
-            borderRadius: 8,
-            border: `1px solid ${color.bg.elevated}`,
-            padding: "1.25rem",
-            minHeight: 500,
-          }}
-        >
-          <h2 style={sectionHeader}>Game Tree</h2>
-          <div
-            style={{
-              height: 420,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              border: `1px dashed ${color.text.muted}`,
-              borderRadius: 4,
-            }}
-          >
-            <span
-              style={{
-                fontFamily: font.mono,
-                fontSize: "0.75rem",
-                color: color.text.muted,
-              }}
-            >
-              D3 tree layout — zoomable, collapsible nodes
-            </span>
+        <div style={styles.mainPanel}>
+          <h2 style={styles.sectionHeader}>Game Tree</h2>
+          <div style={styles.treePlaceholder}>
+            <div style={styles.placeholderInner}>
+              <span style={styles.placeholderIcon}>{"\u2261"}</span>
+              <span style={styles.placeholderText}>D3 tree layout</span>
+              <span style={styles.placeholderSub}>Zoomable, collapsible decision nodes</span>
+            </div>
           </div>
         </div>
 
         {/* Right: strategy & convergence */}
-        <div style={{ flex: 2, display: "flex", flexDirection: "column", gap: "1rem" }}>
-          <div
-            style={{
-              background: color.bg.surface,
-              borderRadius: 8,
-              border: `1px solid ${color.bg.elevated}`,
-              padding: "1.25rem",
-            }}
-          >
-            <h2 style={sectionHeader}>Strategy at Node</h2>
-            <div style={{ display: "flex", gap: 8 }}>
+        <div style={styles.sidebar}>
+          {/* Strategy at node */}
+          <div style={styles.sidePanel}>
+            <h2 style={styles.sectionHeader}>Strategy at Node</h2>
+            <div style={styles.strategyBars}>
               {[
-                { label: "Fold", pct: 23, color: color.action.fold },
-                { label: "Call", pct: 45, color: color.action.call },
-                { label: "Raise", pct: 32, color: color.action.raise },
+                { label: "Fold", pct: 23, barColor: color.action.fold },
+                { label: "Call", pct: 45, barColor: color.action.call },
+                { label: "Raise", pct: 32, barColor: color.action.raise },
               ].map((a) => (
-                <div
-                  key={a.label}
-                  style={{
-                    flex: a.pct,
-                    background: a.color,
-                    borderRadius: 4,
-                    padding: "0.5rem",
-                    textAlign: "center",
-                  }}
-                >
-                  <div
-                    style={{
-                      fontFamily: font.mono,
-                      fontSize: "0.7rem",
-                      fontWeight: 600,
-                      color: color.text.primary,
-                    }}
-                  >
-                    {a.pct}%
+                <div key={a.label} style={styles.barRow}>
+                  <span style={styles.barLabel}>{a.label}</span>
+                  <div style={styles.barTrack}>
+                    <div
+                      style={{
+                        ...styles.barFill,
+                        width: `${a.pct}%`,
+                        background: a.barColor,
+                      }}
+                    />
                   </div>
-                  <div
-                    style={{
-                      fontSize: "0.65rem",
-                      color: color.text.primary,
-                      opacity: 0.8,
-                    }}
-                  >
-                    {a.label}
-                  </div>
+                  <span style={styles.barPct}>{a.pct}%</span>
                 </div>
               ))}
             </div>
           </div>
 
-          <div
-            style={{
-              background: color.bg.surface,
-              borderRadius: 8,
-              border: `1px solid ${color.bg.elevated}`,
-              padding: "1.25rem",
-              flex: 1,
-            }}
-          >
-            <h2 style={sectionHeader}>Convergence</h2>
-            <div
-              style={{
-                height: 180,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                border: `1px dashed ${color.text.muted}`,
-                borderRadius: 4,
-              }}
-            >
-              <span
-                style={{
-                  fontFamily: font.mono,
-                  fontSize: "0.75rem",
-                  color: color.text.muted,
-                }}
-              >
-                Exploitability curve — D3 line chart
-              </span>
+          {/* Convergence */}
+          <div style={{ ...styles.sidePanel, flex: 1 }}>
+            <h2 style={styles.sectionHeader}>Convergence</h2>
+            <div style={styles.chartPlaceholder}>
+              <span style={styles.placeholderText}>Exploitability curve</span>
             </div>
           </div>
 
-          <div
-            style={{
-              background: color.bg.surface,
-              borderRadius: 8,
-              border: `1px solid ${color.bg.elevated}`,
-              padding: "1.25rem",
-            }}
-          >
-            <h2 style={sectionHeader}>EV by Action</h2>
-            <div
-              style={{
-                height: 120,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                border: `1px dashed ${color.text.muted}`,
-                borderRadius: 4,
-              }}
-            >
-              <span
-                style={{
-                  fontFamily: font.mono,
-                  fontSize: "0.75rem",
-                  color: color.text.muted,
-                }}
-              >
-                EV bar chart
-              </span>
+          {/* EV */}
+          <div style={styles.sidePanel}>
+            <h2 style={styles.sectionHeader}>EV by Action</h2>
+            <div style={styles.evBars}>
+              {[
+                { label: "Fold", ev: 0, barColor: color.action.fold },
+                { label: "Call", ev: 42, barColor: color.action.call },
+                { label: "Raise", ev: 78, barColor: color.action.raise },
+              ].map((a) => (
+                <div key={a.label} style={styles.evRow}>
+                  <span style={styles.barLabel}>{a.label}</span>
+                  <div style={styles.barTrack}>
+                    <div
+                      style={{
+                        ...styles.barFill,
+                        width: `${(a.ev / 100) * 100}%`,
+                        background: `linear-gradient(90deg, ${a.barColor}80, ${a.barColor})`,
+                      }}
+                    />
+                  </div>
+                  <span style={styles.evValue}>{a.ev > 0 ? "+" : ""}{a.ev}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -180,12 +92,159 @@ export function StrategyMap() {
   );
 }
 
-const sectionHeader = {
-  fontFamily: font.mono,
-  fontSize: "0.7rem",
-  fontWeight: 600,
-  color: color.text.secondary,
-  letterSpacing: "0.06em",
-  textTransform: "uppercase" as const,
-  marginBottom: "0.75rem",
+const styles: Record<string, React.CSSProperties> = {
+  page: {
+    padding: "2rem",
+    maxWidth: 1100,
+    margin: "0 auto",
+    animation: "fadeIn 0.4s ease",
+  },
+  header: {
+    marginBottom: "1.5rem",
+  },
+  title: {
+    fontFamily: font.mono,
+    fontSize: "0.9rem",
+    fontWeight: 600,
+    color: color.accent.silver,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    marginBottom: "0.3rem",
+  },
+  subtitle: {
+    fontSize: "0.78rem",
+    color: color.text.muted,
+  },
+  layout: {
+    display: "flex",
+    gap: "0.75rem",
+  },
+  mainPanel: {
+    flex: 3,
+    background: color.gradient.panel,
+    borderRadius: 10,
+    border: `1px solid ${color.bg.border}`,
+    padding: "1.25rem",
+  },
+  sidebar: {
+    flex: 2,
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.75rem",
+  },
+  sidePanel: {
+    background: color.gradient.panel,
+    borderRadius: 10,
+    border: `1px solid ${color.bg.border}`,
+    padding: "1.25rem",
+    transition: transition.normal,
+  },
+  sectionHeader: {
+    fontFamily: font.mono,
+    fontSize: "0.68rem",
+    fontWeight: 600,
+    color: color.text.secondary,
+    letterSpacing: "0.06em",
+    textTransform: "uppercase",
+    marginBottom: "0.75rem",
+  },
+  treePlaceholder: {
+    height: 420,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 8,
+    border: `1px dashed ${color.bg.borderLight}`,
+    background: `${color.bg.base}60`,
+  },
+  placeholderInner: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "0.5rem",
+  },
+  placeholderIcon: {
+    fontSize: "1.5rem",
+    color: color.text.dim,
+    opacity: 0.5,
+  },
+  placeholderText: {
+    fontFamily: font.mono,
+    fontSize: "0.65rem",
+    color: color.text.dim,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+  },
+  placeholderSub: {
+    fontSize: "0.7rem",
+    color: color.text.dim,
+    opacity: 0.6,
+  },
+  chartPlaceholder: {
+    height: 140,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 6,
+    border: `1px dashed ${color.bg.borderLight}`,
+    background: `${color.bg.base}60`,
+  },
+
+  // Strategy bars
+  strategyBars: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+  },
+  barRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+  },
+  barLabel: {
+    fontFamily: font.mono,
+    fontSize: "0.62rem",
+    color: color.text.secondary,
+    width: 36,
+    textTransform: "uppercase",
+    letterSpacing: "0.04em",
+  },
+  barTrack: {
+    flex: 1,
+    height: 6,
+    background: color.bg.elevated,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  barFill: {
+    height: "100%",
+    borderRadius: 3,
+    transition: "width 0.6s ease",
+  },
+  barPct: {
+    fontFamily: font.mono,
+    fontSize: "0.62rem",
+    color: color.text.muted,
+    width: 30,
+    textAlign: "right",
+  },
+
+  // EV bars
+  evBars: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+  },
+  evRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+  },
+  evValue: {
+    fontFamily: font.mono,
+    fontSize: "0.62rem",
+    color: color.accent.gold,
+    width: 30,
+    textAlign: "right",
+  },
 };
