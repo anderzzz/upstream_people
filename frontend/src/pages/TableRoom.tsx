@@ -2,71 +2,87 @@
  * The Table — live PLO game room.
  *
  * Robotic Noir aesthetic: dark felt, metallic accents, clean geometry.
- * Currently renders with mock data to settle the visual design.
+ * Connects to backend via WebSocket for real-time play.
  */
 
 import { useState } from "react";
 import { color, font, shadow, transition, size } from "../theme/tokens.ts";
 import { Card } from "../components/shared/Card.tsx";
-
-// ─── Mock game state for visual development ────────────────────
-
-interface MockPlayer {
-  name: string;
-  stack: number;
-  chipsInPot: number;
-  isFolded: boolean;
-  isAllIn: boolean;
-  isDealer: boolean;
-  cards?: string[];
-  seatAngle: number; // degrees around the table ellipse
-}
-
-const MOCK_PLAYERS: MockPlayer[] = [
-  { name: "Bot Alpha", stack: 2450, chipsInPot: 150, isFolded: false, isAllIn: false, isDealer: false, seatAngle: 220 },
-  { name: "Bot Beta", stack: 1800, chipsInPot: 0, isFolded: true, isAllIn: false, isDealer: false, seatAngle: 270 },
-  { name: "Bot Gamma", stack: 3200, chipsInPot: 300, isFolded: false, isAllIn: false, isDealer: true, seatAngle: 320 },
-];
-
-const MOCK_BOARD = ["Td", "9s", "2h"];
-const MOCK_HERO_CARDS = ["As", "Kh", "Qd", "Jc"];
-const MOCK_POT = 1250;
-const MOCK_HERO_STACK = 2800;
-const MOCK_TO_CALL = 150;
-const MOCK_POT_LIMIT = 1750;
+import { useGameSocket } from "../hooks/useGameSocket.ts";
+import type { OpponentInfo, SessionConfig, StandingInfo, HandResultInfo } from "../types/game.ts";
 
 // ─── Main Component ────────────────────────────────────────────
 
 export function TableRoom() {
-  const [selectedAction, setSelectedAction] = useState<string | null>(null);
-  const [raiseAmount, setRaiseAmount] = useState(MOCK_POT_LIMIT / 2);
+  const { state, startSession, sendAction, nextHand, quit } = useGameSocket();
+  const [raiseAmount, setRaiseAmount] = useState(0);
+
+  // ── Lobby screen ──
+  if (state.status === "lobby" || state.status === "starting") {
+    return <Lobby onStart={startSession} status={state.status} error={state.error} />;
+  }
+
+  // Derive display values
+  const hasRaise = state.legalActions.some(
+    (a) => a.action_type === "raise" || a.action_type === "bet",
+  );
+  const hasCheck = state.legalActions.some((a) => a.action_type === "check");
+  const hasCall = state.legalActions.some((a) => a.action_type === "call");
+
+  // Compute raise bounds from legal actions
+  const raiseActions = state.legalActions.filter(
+    (a) => a.action_type === "raise" || a.action_type === "bet",
+  );
+  const minRaiseAmount = raiseActions.length > 0
+    ? Math.min(...raiseActions.map((a) => a.amount))
+    : 0;
+  const maxRaiseAmount = raiseActions.length > 0
+    ? Math.max(...raiseActions.map((a) => a.amount))
+    : 0;
+
+  // Ensure raiseAmount is within bounds
+  const effectiveRaise = Math.max(minRaiseAmount, Math.min(maxRaiseAmount, raiseAmount || minRaiseAmount));
+
+  const blindsLabel = state.blinds
+    ? `${state.blinds.small_blind}/${state.blinds.big_blind}`
+    : "";
+
+  // Compute opponent seat angles dynamically
+  const opponentsWithAngles = state.opponents.map((opp, i) => {
+    // Spread opponents across the top half (180-360 degrees)
+    const startAngle = 200;
+    const endAngle = 340;
+    const step = state.opponents.length > 1
+      ? (endAngle - startAngle) / (state.opponents.length - 1)
+      : 0;
+    const angle = state.opponents.length === 1 ? 270 : startAngle + step * i;
+    return { ...opp, seatAngle: angle };
+  });
 
   return (
     <div style={styles.page}>
       {/* Phase banner */}
       <div style={styles.phaseBanner}>
-        <span style={styles.phaseLabel}>FLOP</span>
+        <span style={styles.phaseLabel}>{state.phase || "WAITING"}</span>
         <span style={styles.phaseDivider}>|</span>
-        <span style={styles.blindsLabel}>Blinds 25/50</span>
+        <span style={styles.blindsLabel}>Blinds {blindsLabel}</span>
+        <span style={styles.phaseDivider}>|</span>
+        <span style={styles.blindsLabel}>Hand #{state.handNumber}</span>
       </div>
 
       {/* Table area */}
       <div style={styles.tableArea}>
-        {/* The felt */}
         <div style={styles.felt}>
-          {/* Felt inner border */}
           <div style={styles.feltInner}>
-            {/* Rail / edge highlight */}
             <div style={styles.feltRail} />
 
             {/* Community cards */}
             <div style={styles.boardSection}>
               <div style={styles.boardCards}>
-                {MOCK_BOARD.map((card, i) => (
-                  <Card key={card} card={card} scale={1.05} animated dealDelay={i * 120} />
+                {state.board.map((card, i) => (
+                  <Card key={`${card}-${i}`} card={card} scale={1.05} animated dealDelay={i * 120} />
                 ))}
-                {/* Remaining board slots */}
-                {[...Array(5 - MOCK_BOARD.length)].map((_, i) => (
+                {[...Array(Math.max(0, 5 - state.board.length))].map((_, i) => (
                   <div key={`empty-${i}`} style={styles.emptyBoardSlot} />
                 ))}
               </div>
@@ -74,44 +90,177 @@ export function TableRoom() {
 
             {/* Pot */}
             <div style={styles.potDisplay}>
-              <ChipStack amount={MOCK_POT} />
+              <ChipStack amount={state.pot} />
             </div>
 
             {/* Opponent seats */}
-            {MOCK_PLAYERS.map((player) => (
-              <OpponentSeat key={player.name} player={player} />
+            {opponentsWithAngles.map((opp) => (
+              <OpponentSeat
+                key={opp.seat}
+                opponent={opp}
+                seatAngle={opp.seatAngle}
+                isDealer={opp.seat === state.button}
+              />
             ))}
           </div>
         </div>
       </div>
 
-      {/* Hero section — bottom of screen */}
+      {/* Hero section */}
       <div style={styles.heroSection}>
-        {/* Hero info bar */}
         <div style={styles.heroInfo}>
           <div style={styles.heroNameBlock}>
             <span style={styles.heroName}>You</span>
-            <span style={styles.heroStack}>${MOCK_HERO_STACK.toLocaleString()}</span>
+            <span style={styles.heroStack}>${state.heroStack.toLocaleString()}</span>
+            {state.yourSeat === state.button && (
+              <span style={styles.dealerBadge}>D</span>
+            )}
           </div>
         </div>
 
         {/* Hero cards */}
         <div style={styles.heroCards}>
-          {MOCK_HERO_CARDS.map((card, i) => (
-            <Card key={card} card={card} scale={1.15} animated dealDelay={600 + i * 100} />
+          {state.heroCards.map((card, i) => (
+            <Card key={`${card}-${i}`} card={card} scale={1.15} animated dealDelay={600 + i * 100} />
           ))}
         </div>
 
-        {/* Action panel */}
-        <ActionPanel
-          toCall={MOCK_TO_CALL}
-          potLimit={MOCK_POT_LIMIT}
-          pot={MOCK_POT}
-          raiseAmount={raiseAmount}
-          onRaiseChange={setRaiseAmount}
-          selectedAction={selectedAction}
-          onAction={setSelectedAction}
+        {/* Action panel — only when it's our turn */}
+        {state.awaitingAction && (
+          <ActionPanel
+            toCall={state.toCall}
+            potLimit={maxRaiseAmount}
+            pot={state.pot}
+            minRaise={minRaiseAmount}
+            maxRaise={maxRaiseAmount}
+            raiseAmount={effectiveRaise}
+            onRaiseChange={setRaiseAmount}
+            hasCheck={hasCheck}
+            hasCall={hasCall}
+            hasRaise={hasRaise}
+            onAction={(action, amount) => sendAction(action, amount)}
+          />
+        )}
+
+        {/* Waiting indicator */}
+        {state.status === "playing" && !state.awaitingAction && !state.handResult && (
+          <div style={styles.waitingLabel}>Waiting for opponents...</div>
+        )}
+      </div>
+
+      {/* Hand result overlay */}
+      {state.status === "between_hands" && state.handResult && (
+        <HandResultOverlay
+          result={state.handResult}
+          standings={state.standings}
+          yourSeat={state.yourSeat}
+          onNextHand={nextHand}
+          onQuit={quit}
         />
+      )}
+
+      {/* Session over overlay */}
+      {state.status === "session_over" && (
+        <div style={styles.overlay}>
+          <div style={styles.overlayPanel}>
+            <h2 style={styles.overlayTitle}>Session Over</h2>
+            <p style={styles.overlayText}>{state.sessionOverReason}</p>
+            <StandingsTable standings={state.standings} />
+          </div>
+        </div>
+      )}
+
+      {/* Error display */}
+      {state.error && (
+        <div style={styles.errorBanner}>{state.error}</div>
+      )}
+    </div>
+  );
+}
+
+// ─── Lobby ────────────────────────────────────────────────────
+
+function Lobby({
+  onStart,
+  status,
+  error,
+}: {
+  onStart: (config: SessionConfig) => void;
+  status: string;
+  error: string | null;
+}) {
+  const [opponents, setOpponents] = useState(2);
+  const [botType, setBotType] = useState("heuristic");
+  const [stack, setStack] = useState(1000);
+  const [blinds, setBlinds] = useState("5/10");
+
+  return (
+    <div style={styles.lobbyPage}>
+      <div style={styles.lobbyPanel}>
+        <h1 style={styles.lobbyTitle}>PLO TABLE</h1>
+
+        <div style={styles.lobbyField}>
+          <label style={styles.lobbyLabel}>Opponents</label>
+          <select
+            value={opponents}
+            onChange={(e) => setOpponents(Number(e.target.value))}
+            style={styles.lobbyInput}
+          >
+            {[1, 2, 3, 4, 5].map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
+        </div>
+
+        <div style={styles.lobbyField}>
+          <label style={styles.lobbyLabel}>Bot Type</label>
+          <select
+            value={botType}
+            onChange={(e) => setBotType(e.target.value)}
+            style={styles.lobbyInput}
+          >
+            <option value="heuristic">Heuristic (TAG)</option>
+            <option value="random">Random</option>
+            <option value="calling">Calling Station</option>
+          </select>
+        </div>
+
+        <div style={styles.lobbyField}>
+          <label style={styles.lobbyLabel}>Stack</label>
+          <input
+            type="number"
+            value={stack}
+            onChange={(e) => setStack(Number(e.target.value))}
+            style={styles.lobbyInput}
+          />
+        </div>
+
+        <div style={styles.lobbyField}>
+          <label style={styles.lobbyLabel}>Blinds (SB/BB)</label>
+          <input
+            value={blinds}
+            onChange={(e) => setBlinds(e.target.value)}
+            style={styles.lobbyInput}
+          />
+        </div>
+
+        <button
+          onClick={() => onStart({ opponents, bot_type: botType, stack, blinds })}
+          disabled={status === "starting"}
+          style={styles.lobbyStartBtn}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.boxShadow = shadow.glowStrong(color.accent.gold);
+            e.currentTarget.style.transform = "translateY(-1px)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.boxShadow = shadow.glow(color.accent.gold);
+            e.currentTarget.style.transform = "translateY(0)";
+          }}
+        >
+          {status === "starting" ? "Starting..." : "Start Game"}
+        </button>
+
+        {error && <p style={styles.lobbyError}>{error}</p>}
       </div>
     </div>
   );
@@ -119,8 +268,15 @@ export function TableRoom() {
 
 // ─── Opponent Seat ─────────────────────────────────────────────
 
-function OpponentSeat({ player }: { player: MockPlayer }) {
-  // Position seats around the top of the felt ellipse
+function OpponentSeat({
+  opponent,
+  seatAngle,
+  isDealer,
+}: {
+  opponent: OpponentInfo;
+  seatAngle: number;
+  isDealer: boolean;
+}) {
   const tableW = 720;
   const tableH = 380;
   const cx = tableW / 2;
@@ -128,7 +284,7 @@ function OpponentSeat({ player }: { player: MockPlayer }) {
   const rx = tableW / 2 - 20;
   const ry = tableH / 2 - 20;
 
-  const rad = (player.seatAngle * Math.PI) / 180;
+  const rad = (seatAngle * Math.PI) / 180;
   const x = cx + rx * Math.cos(rad);
   const y = cy + ry * Math.sin(rad);
 
@@ -143,13 +299,17 @@ function OpponentSeat({ player }: { player: MockPlayer }) {
         flexDirection: "column",
         alignItems: "center",
         gap: 3,
-        opacity: player.isFolded ? 0.4 : 1,
+        opacity: opponent.is_folded ? 0.4 : 1,
         transition: transition.normal,
       }}
     >
-      {/* Face-down cards */}
+      {/* Face-down cards (or showdown cards) */}
       <div style={{ display: "flex", gap: 2 }}>
-        {player.isFolded ? null : (
+        {opponent.is_folded ? null : opponent.hole_cards ? (
+          opponent.hole_cards.map((card, i) => (
+            <Card key={`${card}-${i}`} card={card} scale={0.45} />
+          ))
+        ) : (
           <>
             <Card faceDown scale={0.45} />
             <Card faceDown scale={0.45} />
@@ -163,14 +323,14 @@ function OpponentSeat({ player }: { player: MockPlayer }) {
       <div
         style={{
           background: color.gradient.panel,
-          border: `1px solid ${player.isDealer ? color.accent.gold : color.bg.border}`,
+          border: `1px solid ${isDealer ? color.accent.gold : color.bg.border}`,
           borderRadius: 6,
           padding: "3px 8px",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           minWidth: 80,
-          boxShadow: player.isDealer ? shadow.glow(color.accent.gold) : shadow.sm,
+          boxShadow: isDealer ? shadow.glow(color.accent.gold) : shadow.sm,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -179,26 +339,13 @@ function OpponentSeat({ player }: { player: MockPlayer }) {
               fontFamily: font.mono,
               fontSize: "0.65rem",
               fontWeight: 600,
-              color: player.isFolded ? color.text.muted : color.text.primary,
+              color: opponent.is_folded ? color.text.muted : color.text.primary,
             }}
           >
-            {player.name}
+            {opponent.name}
           </span>
-          {player.isDealer && (
-            <span
-              style={{
-                fontSize: "0.5rem",
-                fontFamily: font.mono,
-                fontWeight: 700,
-                color: color.bg.base,
-                background: color.accent.gold,
-                borderRadius: 3,
-                padding: "0 3px",
-                lineHeight: "14px",
-              }}
-            >
-              D
-            </span>
+          {isDealer && (
+            <span style={styles.dealerBadge}>D</span>
           )}
         </div>
         <span
@@ -208,12 +355,12 @@ function OpponentSeat({ player }: { player: MockPlayer }) {
             color: color.text.secondary,
           }}
         >
-          ${player.stack.toLocaleString()}
+          ${opponent.stack.toLocaleString()}
         </span>
       </div>
 
-      {/* Chips in pot indicator */}
-      {player.chipsInPot > 0 && !player.isFolded && (
+      {/* Chips in pot */}
+      {opponent.chips_in_pot > 0 && !opponent.is_folded && (
         <span
           style={{
             fontFamily: font.mono,
@@ -222,17 +369,17 @@ function OpponentSeat({ player }: { player: MockPlayer }) {
             opacity: 0.8,
           }}
         >
-          ${player.chipsInPot}
+          ${opponent.chips_in_pot}
         </span>
       )}
 
       {/* Status badges */}
-      {player.isFolded && (
+      {opponent.is_folded && (
         <span style={{ fontFamily: font.mono, fontSize: "0.55rem", color: color.text.muted }}>
           FOLD
         </span>
       )}
-      {player.isAllIn && (
+      {opponent.is_all_in && (
         <span style={{ fontFamily: font.mono, fontSize: "0.55rem", color: color.status.allIn, fontWeight: 700 }}>
           ALL-IN
         </span>
@@ -246,7 +393,6 @@ function OpponentSeat({ player }: { player: MockPlayer }) {
 function ChipStack({ amount }: { amount: number }) {
   return (
     <div style={styles.chipStack}>
-      {/* Chip icon row */}
       <div style={styles.chipIcons}>
         <div style={{ ...styles.chipDot, background: color.chip.black }} />
         <div style={{ ...styles.chipDot, background: color.chip.red }} />
@@ -263,33 +409,55 @@ interface ActionPanelProps {
   toCall: number;
   potLimit: number;
   pot: number;
+  minRaise: number;
+  maxRaise: number;
   raiseAmount: number;
   onRaiseChange: (v: number) => void;
-  selectedAction: string | null;
-  onAction: (a: string) => void;
+  hasCheck: boolean;
+  hasCall: boolean;
+  hasRaise: boolean;
+  onAction: (action: string, amount?: number) => void;
 }
 
 function ActionPanel({
   toCall,
   potLimit,
   pot,
+  minRaise,
+  maxRaise,
   raiseAmount,
   onRaiseChange,
+  hasCheck,
+  hasCall,
+  hasRaise,
   onAction,
 }: ActionPanelProps) {
-  const minRaise = toCall * 2;
+  const isRaise = toCall > 0;
+  const raiseLabel = isRaise ? "Raise" : "Bet";
 
   return (
     <div style={styles.actionPanel}>
       {/* Info line */}
       <div style={styles.actionInfo}>
+        {toCall > 0 && (
+          <>
+            <span style={styles.actionInfoItem}>
+              To call: <span style={styles.actionInfoValue}>${toCall}</span>
+            </span>
+            <span style={styles.actionInfoDivider}>|</span>
+          </>
+        )}
         <span style={styles.actionInfoItem}>
-          To call: <span style={styles.actionInfoValue}>${toCall}</span>
+          Pot: <span style={styles.actionInfoValue}>${pot.toLocaleString()}</span>
         </span>
-        <span style={styles.actionInfoDivider}>|</span>
-        <span style={styles.actionInfoItem}>
-          Pot limit: <span style={styles.actionInfoValue}>${potLimit.toLocaleString()}</span>
-        </span>
+        {hasRaise && (
+          <>
+            <span style={styles.actionInfoDivider}>|</span>
+            <span style={styles.actionInfoItem}>
+              Pot limit: <span style={styles.actionInfoValue}>${potLimit.toLocaleString()}</span>
+            </span>
+          </>
+        )}
       </div>
 
       {/* Buttons */}
@@ -300,69 +468,85 @@ function ActionPanel({
           hoverColor={color.action.foldHover}
           onClick={() => onAction("fold")}
         />
-        <ActionButton
-          label={`Call $${toCall}`}
-          color={color.action.call}
-          hoverColor={color.action.callHover}
-          onClick={() => onAction("call")}
-        />
-        <ActionButton
-          label={`Raise $${raiseAmount}`}
-          color={color.action.raise}
-          hoverColor={color.action.raiseHover}
-          primary
-          onClick={() => onAction("raise")}
-        />
+        {hasCheck && (
+          <ActionButton
+            label="Check"
+            color={color.action.call}
+            hoverColor={color.action.callHover}
+            onClick={() => onAction("check")}
+          />
+        )}
+        {hasCall && (
+          <ActionButton
+            label={`Call $${toCall}`}
+            color={color.action.call}
+            hoverColor={color.action.callHover}
+            onClick={() => onAction("call")}
+          />
+        )}
+        {hasRaise && (
+          <ActionButton
+            label={`${raiseLabel} $${raiseAmount}`}
+            color={color.action.raise}
+            hoverColor={color.action.raiseHover}
+            primary
+            onClick={() => onAction(isRaise ? "raise" : "bet", raiseAmount)}
+          />
+        )}
       </div>
 
       {/* Raise slider */}
-      <div style={styles.sliderSection}>
-        <span style={styles.sliderLabel}>${minRaise}</span>
-        <div style={styles.sliderTrack}>
-          <input
-            type="range"
-            min={minRaise}
-            max={potLimit}
-            value={raiseAmount}
-            onChange={(e) => onRaiseChange(Number(e.target.value))}
-            style={styles.slider}
-          />
-          {/* Visual fill */}
-          <div
-            style={{
-              ...styles.sliderFill,
-              width: `${((raiseAmount - minRaise) / (potLimit - minRaise)) * 100}%`,
-            }}
-          />
-        </div>
-        <span style={styles.sliderLabel}>${potLimit.toLocaleString()}</span>
+      {hasRaise && maxRaise > minRaise && (
+        <div style={styles.sliderSection}>
+          <span style={styles.sliderLabel}>${minRaise}</span>
+          <div style={styles.sliderTrack}>
+            <input
+              type="range"
+              min={minRaise}
+              max={maxRaise}
+              value={raiseAmount}
+              onChange={(e) => onRaiseChange(Number(e.target.value))}
+              style={styles.slider}
+            />
+            <div
+              style={{
+                ...styles.sliderFill,
+                width: `${((raiseAmount - minRaise) / (maxRaise - minRaise)) * 100}%`,
+              }}
+            />
+          </div>
+          <span style={styles.sliderLabel}>${maxRaise.toLocaleString()}</span>
 
-        {/* Quick-size buttons */}
-        <div style={styles.quickSizes}>
-          {[
-            { label: "1/3", mult: 1 / 3 },
-            { label: "1/2", mult: 1 / 2 },
-            { label: "2/3", mult: 2 / 3 },
-            { label: "POT", mult: 1 },
-          ].map((s) => (
-            <button
-              key={s.label}
-              onClick={() => onRaiseChange(Math.max(minRaise, Math.min(potLimit, Math.round(pot * s.mult))))}
-              style={styles.quickSizeBtn}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = color.accent.gold;
-                e.currentTarget.style.color = color.text.primary;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = color.bg.borderLight;
-                e.currentTarget.style.color = color.text.secondary;
-              }}
-            >
-              {s.label}
-            </button>
-          ))}
+          <div style={styles.quickSizes}>
+            {[
+              { label: "1/3", mult: 1 / 3 },
+              { label: "1/2", mult: 1 / 2 },
+              { label: "2/3", mult: 2 / 3 },
+              { label: "POT", mult: 1 },
+            ].map((s) => (
+              <button
+                key={s.label}
+                onClick={() =>
+                  onRaiseChange(
+                    Math.max(minRaise, Math.min(maxRaise, Math.round(pot * s.mult))),
+                  )
+                }
+                style={styles.quickSizeBtn}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = color.accent.gold;
+                  e.currentTarget.style.color = color.text.primary;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = color.bg.borderLight;
+                  e.currentTarget.style.color = color.text.secondary;
+                }}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -392,7 +576,7 @@ function ActionButton({
         fontSize: "0.72rem",
         fontWeight: 600,
         letterSpacing: "0.04em",
-        textTransform: "uppercase",
+        textTransform: "uppercase" as const,
         color: primary ? "#0e0e11" : color.text.primary,
         background: primary
           ? `linear-gradient(180deg, ${btnColor} 0%, ${hoverColor} 100%)`
@@ -427,6 +611,74 @@ function ActionButton({
   );
 }
 
+// ─── Hand Result Overlay ───────────────────────────────────────
+
+function HandResultOverlay({
+  result,
+  standings,
+  yourSeat,
+  onNextHand,
+  onQuit,
+}: {
+  result: HandResultInfo;
+  standings: StandingInfo[];
+  yourSeat: number;
+  onNextHand: () => void;
+  onQuit: () => void;
+}) {
+  const heroProfit = result.net_profit[String(yourSeat)] ?? 0;
+  const isWin = heroProfit > 0;
+
+  return (
+    <div style={styles.overlay}>
+      <div style={styles.overlayPanel}>
+        <h2
+          style={{
+            ...styles.overlayTitle,
+            color: isWin ? color.status.winner : heroProfit < 0 ? color.status.allIn : color.text.primary,
+          }}
+        >
+          {isWin ? `+$${heroProfit}` : heroProfit < 0 ? `-$${Math.abs(heroProfit)}` : "Break Even"}
+        </h2>
+
+        {result.went_to_showdown && result.board.length > 0 && (
+          <div style={{ display: "flex", gap: 4, justifyContent: "center", margin: "8px 0" }}>
+            {result.board.map((card, i) => (
+              <Card key={`${card}-${i}`} card={card} scale={0.7} />
+            ))}
+          </div>
+        )}
+
+        <StandingsTable standings={standings} />
+
+        <div style={styles.overlayButtons}>
+          <button onClick={onNextHand} style={styles.overlayBtn}>
+            Next Hand
+          </button>
+          <button onClick={onQuit} style={styles.overlayBtnSecondary}>
+            Quit
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Standings Table ───────────────────────────────────────────
+
+function StandingsTable({ standings }: { standings: StandingInfo[] }) {
+  return (
+    <div style={styles.standingsTable}>
+      {standings.map((s) => (
+        <div key={s.name} style={styles.standingsRow}>
+          <span style={styles.standingsName}>{s.name}</span>
+          <span style={styles.standingsStack}>${s.stack.toLocaleString()}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ─── Styles ────────────────────────────────────────────────────
 
 const styles: Record<string, React.CSSProperties> = {
@@ -436,6 +688,7 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: "column",
     background: color.gradient.felt,
     overflow: "hidden",
+    position: "relative",
   },
 
   // Phase banner
@@ -475,7 +728,6 @@ const styles: Record<string, React.CSSProperties> = {
     minHeight: 0,
   },
 
-  // The felt
   felt: {
     width: 720,
     height: 380,
@@ -485,14 +737,12 @@ const styles: Record<string, React.CSSProperties> = {
     position: "relative",
     boxShadow: `inset 0 0 60px rgba(0,0,0,0.3), 0 0 40px rgba(0,0,0,0.4)`,
   },
-
   feltInner: {
     position: "absolute",
     inset: 6,
     borderRadius: "50%",
     border: `1px solid ${color.felt.accent}20`,
   },
-
   feltRail: {
     position: "absolute",
     inset: -3,
@@ -500,7 +750,6 @@ const styles: Record<string, React.CSSProperties> = {
     border: `3px solid ${color.felt.accent}15`,
   },
 
-  // Board
   boardSection: {
     position: "absolute",
     top: "38%",
@@ -511,13 +760,11 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     gap: 8,
   },
-
   boardCards: {
     display: "flex",
     gap: 6,
     alignItems: "center",
   },
-
   emptyBoardSlot: {
     width: size.card.width * 1.05,
     height: size.card.height * 1.05,
@@ -526,33 +773,28 @@ const styles: Record<string, React.CSSProperties> = {
     background: `${color.felt.deep}40`,
   },
 
-  // Pot
   potDisplay: {
     position: "absolute",
     top: "60%",
     left: "50%",
     transform: "translate(-50%, -50%)",
   },
-
   chipStack: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     gap: 2,
   },
-
   chipIcons: {
     display: "flex",
     gap: 2,
   },
-
   chipDot: {
     width: 10,
     height: 10,
     borderRadius: "50%",
     border: "1px solid rgba(255,255,255,0.15)",
   },
-
   potAmount: {
     fontFamily: font.mono,
     fontSize: "0.85rem",
@@ -570,19 +812,16 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "0.5rem 2rem 1rem",
     background: `linear-gradient(180deg, transparent 0%, ${color.bg.base}cc 30%, ${color.bg.base} 100%)`,
   },
-
   heroInfo: {
     display: "flex",
     alignItems: "center",
     gap: "1rem",
   },
-
   heroNameBlock: {
     display: "flex",
     alignItems: "center",
     gap: "0.75rem",
   },
-
   heroName: {
     fontFamily: font.mono,
     fontSize: "0.75rem",
@@ -591,17 +830,34 @@ const styles: Record<string, React.CSSProperties> = {
     letterSpacing: "0.06em",
     textTransform: "uppercase",
   },
-
   heroStack: {
     fontFamily: font.mono,
     fontSize: "0.75rem",
     fontWeight: 500,
     color: color.accent.gold,
   },
-
   heroCards: {
     display: "flex",
     gap: 8,
+  },
+  dealerBadge: {
+    fontSize: "0.5rem",
+    fontFamily: font.mono,
+    fontWeight: 700,
+    color: color.bg.base,
+    background: color.accent.gold,
+    borderRadius: 3,
+    padding: "0 3px",
+    lineHeight: "14px",
+  },
+
+  // Waiting
+  waitingLabel: {
+    fontFamily: font.mono,
+    fontSize: "0.7rem",
+    color: color.text.muted,
+    letterSpacing: "0.04em",
+    padding: "0.5rem",
   },
 
   // Action panel
@@ -613,7 +869,6 @@ const styles: Record<string, React.CSSProperties> = {
     width: "100%",
     maxWidth: 520,
   },
-
   actionInfo: {
     display: "flex",
     alignItems: "center",
@@ -621,28 +876,23 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: font.mono,
     fontSize: "0.65rem",
   },
-
   actionInfoItem: {
     color: color.text.muted,
     letterSpacing: "0.04em",
   },
-
   actionInfoValue: {
     color: color.text.secondary,
     fontWeight: 600,
   },
-
   actionInfoDivider: {
     color: color.text.dim,
   },
-
   actionButtons: {
     display: "flex",
     gap: 8,
     width: "100%",
   },
 
-  // Slider
   sliderSection: {
     display: "flex",
     alignItems: "center",
@@ -650,7 +900,6 @@ const styles: Record<string, React.CSSProperties> = {
     width: "100%",
     flexWrap: "wrap",
   },
-
   sliderLabel: {
     fontFamily: font.mono,
     fontSize: "0.6rem",
@@ -658,7 +907,6 @@ const styles: Record<string, React.CSSProperties> = {
     minWidth: 40,
     textAlign: "center",
   },
-
   sliderTrack: {
     flex: 1,
     height: 4,
@@ -667,7 +915,6 @@ const styles: Record<string, React.CSSProperties> = {
     position: "relative",
     overflow: "hidden",
   },
-
   sliderFill: {
     position: "absolute",
     left: 0,
@@ -677,7 +924,6 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 2,
     pointerEvents: "none",
   },
-
   slider: {
     position: "absolute",
     inset: 0,
@@ -687,7 +933,6 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: "pointer",
     margin: 0,
   },
-
   quickSizes: {
     display: "flex",
     gap: 4,
@@ -695,7 +940,6 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "center",
     marginTop: 2,
   },
-
   quickSizeBtn: {
     fontFamily: font.mono,
     fontSize: "0.58rem",
@@ -708,5 +952,180 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: "pointer",
     transition: transition.fast,
     letterSpacing: "0.04em",
+  },
+
+  // Overlays
+  overlay: {
+    position: "absolute",
+    inset: 0,
+    background: "rgba(0,0,0,0.7)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 100,
+  },
+  overlayPanel: {
+    background: color.gradient.panel,
+    border: `1px solid ${color.bg.border}`,
+    borderRadius: 12,
+    padding: "1.5rem 2rem",
+    minWidth: 300,
+    textAlign: "center",
+  },
+  overlayTitle: {
+    fontFamily: font.mono,
+    fontSize: "1.2rem",
+    fontWeight: 700,
+    letterSpacing: "0.06em",
+    margin: "0 0 0.75rem",
+  },
+  overlayText: {
+    fontFamily: font.mono,
+    fontSize: "0.75rem",
+    color: color.text.muted,
+    margin: "0 0 1rem",
+  },
+  overlayButtons: {
+    display: "flex",
+    gap: 8,
+    justifyContent: "center",
+    marginTop: "1rem",
+  },
+  overlayBtn: {
+    fontFamily: font.mono,
+    fontSize: "0.72rem",
+    fontWeight: 600,
+    letterSpacing: "0.04em",
+    textTransform: "uppercase",
+    color: "#0e0e11",
+    background: `linear-gradient(180deg, ${color.accent.gold} 0%, ${color.accent.goldMuted} 100%)`,
+    border: "none",
+    borderRadius: 8,
+    padding: "0.55rem 1.5rem",
+    cursor: "pointer",
+    boxShadow: shadow.glow(color.accent.gold),
+  },
+  overlayBtnSecondary: {
+    fontFamily: font.mono,
+    fontSize: "0.72rem",
+    fontWeight: 600,
+    letterSpacing: "0.04em",
+    textTransform: "uppercase",
+    color: color.text.secondary,
+    background: "transparent",
+    border: `1px solid ${color.bg.border}`,
+    borderRadius: 8,
+    padding: "0.55rem 1.5rem",
+    cursor: "pointer",
+  },
+
+  // Standings
+  standingsTable: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    margin: "0.5rem 0",
+  },
+  standingsRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    fontFamily: font.mono,
+    fontSize: "0.7rem",
+    padding: "2px 8px",
+  },
+  standingsName: {
+    color: color.text.secondary,
+  },
+  standingsStack: {
+    color: color.accent.gold,
+    fontWeight: 600,
+  },
+
+  // Error
+  errorBanner: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    background: "rgba(200,50,50,0.9)",
+    color: "#fff",
+    fontFamily: font.mono,
+    fontSize: "0.7rem",
+    padding: "0.5rem",
+    textAlign: "center",
+    zIndex: 200,
+  },
+
+  // Lobby
+  lobbyPage: {
+    height: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: color.gradient.felt,
+  },
+  lobbyPanel: {
+    background: color.gradient.panel,
+    border: `1px solid ${color.bg.border}`,
+    borderRadius: 12,
+    padding: "2rem",
+    minWidth: 320,
+    display: "flex",
+    flexDirection: "column",
+    gap: "1rem",
+  },
+  lobbyTitle: {
+    fontFamily: font.mono,
+    fontSize: "1.2rem",
+    fontWeight: 700,
+    color: color.accent.gold,
+    letterSpacing: "0.12em",
+    textAlign: "center",
+    margin: 0,
+  },
+  lobbyField: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.25rem",
+  },
+  lobbyLabel: {
+    fontFamily: font.mono,
+    fontSize: "0.65rem",
+    fontWeight: 600,
+    color: color.text.muted,
+    letterSpacing: "0.06em",
+    textTransform: "uppercase",
+  },
+  lobbyInput: {
+    fontFamily: font.mono,
+    fontSize: "0.75rem",
+    color: color.text.primary,
+    background: color.bg.elevated,
+    border: `1px solid ${color.bg.border}`,
+    borderRadius: 6,
+    padding: "0.4rem 0.6rem",
+    outline: "none",
+  },
+  lobbyStartBtn: {
+    fontFamily: font.mono,
+    fontSize: "0.8rem",
+    fontWeight: 700,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    color: "#0e0e11",
+    background: `linear-gradient(180deg, ${color.accent.gold} 0%, ${color.accent.goldMuted} 100%)`,
+    border: "none",
+    borderRadius: 8,
+    padding: "0.65rem 1.5rem",
+    cursor: "pointer",
+    boxShadow: shadow.glow(color.accent.gold),
+    marginTop: "0.5rem",
+  },
+  lobbyError: {
+    fontFamily: font.mono,
+    fontSize: "0.7rem",
+    color: "#e44",
+    textAlign: "center",
+    margin: 0,
   },
 };
