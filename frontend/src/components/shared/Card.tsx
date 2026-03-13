@@ -22,6 +22,21 @@ const SUIT_COLORS: Record<string, string> = {
   c: color.suit.clubs,
 };
 
+// Pip positions as [x%, y%] — x: 0=left, 50=center, 100=right; y: 0=top, 100=bottom
+// Positions are within the pip area (excluding corner indicators)
+const PIP_LAYOUTS: Record<string, [number, number][]> = {
+  A: [[50, 50]],
+  "2": [[50, 18], [50, 82]],
+  "3": [[50, 18], [50, 50], [50, 82]],
+  "4": [[30, 18], [70, 18], [30, 82], [70, 82]],
+  "5": [[30, 18], [70, 18], [50, 50], [30, 82], [70, 82]],
+  "6": [[30, 18], [70, 18], [30, 50], [70, 50], [30, 82], [70, 82]],
+  "7": [[30, 18], [70, 18], [50, 34], [30, 50], [70, 50], [30, 82], [70, 82]],
+  "8": [[30, 18], [70, 18], [50, 34], [30, 50], [70, 50], [50, 66], [30, 82], [70, 82]],
+  "9": [[30, 16], [70, 16], [30, 38], [70, 38], [50, 50], [30, 62], [70, 62], [30, 84], [70, 84]],
+  T: [[30, 16], [70, 16], [50, 30], [30, 38], [70, 38], [30, 62], [70, 62], [50, 70], [30, 84], [70, 84]],
+};
+
 // ─── PCB color palette ────────────────────────────────────────
 const pcb = {
   fr4:       "#0a2818",   // dark FR4 substrate
@@ -141,25 +156,61 @@ export function Card({
           </span>
         </div>
 
-        {/* Center suit — large */}
+        {/* Center area — pips or face card letter */}
         <div
           style={{
-            flex: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+            position: "absolute",
+            top: 18 * scale,
+            bottom: 18 * scale,
+            left: 4 * scale,
+            right: 4 * scale,
           }}
         >
-          <span
-            style={{
-              fontSize: 28 * scale,
-              color: suitColor,
-              opacity: 0.85,
-              filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.12))",
-            }}
-          >
-            {suitSymbol}
-          </span>
+          {PIP_LAYOUTS[rank] ? (
+            // Number cards + Ace: show suit pips at defined positions
+            PIP_LAYOUTS[rank].map(([x, y], i) => (
+              <span
+                key={i}
+                style={{
+                  position: "absolute",
+                  left: `${x}%`,
+                  top: `${y}%`,
+                  transform: `translate(-50%, -50%)${y > 50 ? " rotate(180deg)" : ""}`,
+                  fontSize: (rank === "A" ? 28 : PIP_LAYOUTS[rank].length > 6 ? 10 : 13) * scale,
+                  color: suitColor,
+                  opacity: rank === "A" ? 0.85 : 0.75,
+                  lineHeight: 1,
+                  filter: rank === "A" ? "drop-shadow(0 1px 2px rgba(0,0,0,0.12))" : undefined,
+                }}
+              >
+                {suitSymbol}
+              </span>
+            ))
+          ) : (
+            // Face cards (J, Q, K): large rank letter in center
+            <div
+              style={{
+                width: "100%",
+                height: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: font.mono,
+                  fontSize: 28 * scale,
+                  fontWeight: 700,
+                  color: suitColor,
+                  opacity: 0.7,
+                  filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.1))",
+                }}
+              >
+                {rank}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Bottom-right corner (inverted) */}
