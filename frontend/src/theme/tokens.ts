@@ -1,109 +1,147 @@
 /**
- * Design tokens — Robotic Noir.
+ * Design tokens — Emerald Void.
  *
- * Hyper-sleek dark grey. Brushed steel gradients. Precise geometry.
+ * Monolithic intelligence. Obsidian surfaces. Bioluminescent emerald.
  * The machine deals your hand. It doesn't blink.
+ *
+ * Color hierarchy:
+ *   Emerald  → the system, the AI, the interface (borders, glows, status)
+ *   Gold     → the money, the stakes, the human element (pots, stacks, profit)
+ *   Obsidian → the void, depth, negative space (surfaces, backgrounds)
  */
 
+// ─── Emerald spectrum ─────────────────────────────────────────
+const emerald = {
+  neon:    "#00FF9D",   // vivid — sparingly, for active glows
+  bright:  "#50FFB0",   // bright — primary UI accent
+  core:    "#3ddc84",   // saturated — icons, labels
+  mid:     "#2a9d5e",   // medium — hover states, secondary
+  dim:     "#1a6b3e",   // muted — subtle accents
+  deep:    "#0d3a20",   // whisper — background tints
+  trace:   "#072818",   // barely there — surface undertones
+} as const;
+
+// ─── Gold spectrum ────────────────────────────────────────────
+const gold = {
+  bright:  "#e8c060",
+  core:    "#d4a84b",
+  muted:   "#8a7030",
+  dim:     "#5a4820",
+} as const;
+
 export const color = {
-  // Backgrounds — dark grey gradient spectrum
+  // Backgrounds — layered obsidian depth
   bg: {
-    base: "#0e0e11",         // deepest void
-    surface: "#161619",      // panels, cards
-    elevated: "#1e1e23",     // hover, modals
-    border: "#2a2a32",       // subtle edges
-    borderLight: "#3a3a44",  // hover edges
-    overlay: "rgba(0, 0, 0, 0.7)",
+    abyss:     "#050506",   // deepest — behind everything
+    base:      "#0A0A0B",   // primary surface
+    surface:   "#111113",   // panels, cards — lifted
+    elevated:  "#18181c",   // hover, modals — another step up
+    border:    "#1e1e26",   // subtle edges — barely visible
+    borderMid: "#2a2a34",   // medium edges — interactive
+    borderLight: "#3a3a46", // hover edges
+    overlay:   "rgba(5, 5, 6, 0.85)",
   },
 
-  // Gradients — the robotic soul
+  // Gradients — the monolithic soul
   gradient: {
-    // Page background — subtle diagonal
-    page: "linear-gradient(160deg, #0e0e11 0%, #121218 40%, #0e0e11 100%)",
-    // Panel surface — brushed steel hint
-    panel: "linear-gradient(180deg, #18181d 0%, #141417 100%)",
-    // Nav bar
-    nav: "linear-gradient(180deg, #141417 0%, #111114 100%)",
-    // Table felt — deep charcoal with a whisper of green
-    felt: "radial-gradient(ellipse at 50% 45%, #1a2420 0%, #141a17 30%, #0e0e11 70%)",
-    // Felt surface
-    feltSurface: "radial-gradient(ellipse at 50% 50%, #1e2e26 0%, #162019 60%, #0e1510 100%)",
-    // Card face
+    // Page background — deep radial void with emerald whisper
+    page: `radial-gradient(ellipse at 50% 0%, ${emerald.trace} 0%, #0A0A0B 50%, #050506 100%)`,
+    // Panel surface — concave metallic
+    panel: "linear-gradient(180deg, #131316 0%, #0e0e11 100%)",
+    // Panel surface on hover — slightly lifted
+    panelHover: "linear-gradient(180deg, #171719 0%, #111114 100%)",
+    // Nav bar — subtle emerald underglow
+    nav: `linear-gradient(180deg, #0f0f12 0%, #0A0A0B 100%)`,
+    // Table felt — deep obsidian with emerald undertone
+    felt: `radial-gradient(ellipse at 50% 40%, ${emerald.trace} 0%, #0A0A0B 60%)`,
+    // Felt surface — the playing field
+    feltSurface: `radial-gradient(ellipse at 50% 50%, #0f1f16 0%, #0a1510 50%, #060e0a 100%)`,
+    // Card face — warm parchment
     cardFace: "linear-gradient(170deg, #f2f0eb 0%, #e8e5de 40%, #ddd9d0 100%)",
-    // Card back — machine pattern
-    cardBack: "linear-gradient(135deg, #1a1a20 0%, #22222a 50%, #1a1a20 100%)",
-    // Action button base
-    button: "linear-gradient(180deg, #1e1e24 0%, #18181e 100%)",
-    // Gold shimmer
-    gold: "linear-gradient(135deg, #c49a3c 0%, #d4aa4b 50%, #c49a3c 100%)",
+    // Card back — dark machine with emerald thread
+    cardBack: `linear-gradient(135deg, #0e0e14 0%, #14141c 50%, #0e0e14 100%)`,
+    // Gold shimmer — for money elements
+    gold: `linear-gradient(135deg, ${gold.muted} 0%, ${gold.core} 50%, ${gold.muted} 100%)`,
+    // Emerald shimmer — for UI elements
+    emerald: `linear-gradient(135deg, ${emerald.dim} 0%, ${emerald.core} 50%, ${emerald.dim} 100%)`,
+    // Rim border — the signature look (used via border-image or pseudo-elements)
+    rimBorder: `linear-gradient(180deg, transparent 0%, ${emerald.dim} 50%, transparent 100%)`,
+    // Horizontal rim
+    rimBorderH: `linear-gradient(90deg, transparent 0%, ${emerald.dim} 50%, transparent 100%)`,
   },
 
-  // The felt — barely-green charcoal (restrained, not emerald)
+  // The felt — deep obsidian-green
   felt: {
-    deep: "#0c1610",
-    base: "#142018",
-    light: "#1e3028",
-    accent: "#2a4838",
+    deep:   "#040a07",
+    base:   "#081410",
+    light:  "#0f2018",
+    accent: "#1a3828",
   },
 
-  // Text — silver-grey family
+  // Text — silver-grey family, slightly cooler
   text: {
-    primary: "#d8d8e0",
-    secondary: "#808098",
-    muted: "#505068",
-    dim: "#383848",
+    primary:   "#d0d0dc",
+    secondary: "#707088",
+    muted:     "#484860",
+    dim:       "#2a2a3a",
   },
 
-  // Accents — precise, mechanical
+  // Emerald — the machine accent
+  emerald,
+
+  // Gold — the money accent
+  gold,
+
+  // Accents — legacy-compatible aliases
   accent: {
-    silver: "#b0b0b8",
-    gold: "#d4a84b",
-    goldMuted: "#8a7030",
-    goldBright: "#e8c060",
-    cyan: "#4ac8d4",        // secondary accent — robotic
-    cyanMuted: "#2a8a94",
-    emerald: "#3ddc84",
-    emeraldMuted: "#2a9d5e",
+    silver:       "#a0a0a8",
+    gold:         gold.core,
+    goldMuted:    gold.muted,
+    goldBright:   gold.bright,
+    cyan:         emerald.bright,      // cyan → emerald bright (system accent)
+    cyanMuted:    emerald.mid,
+    emerald:      emerald.core,
+    emeraldMuted: emerald.mid,
   },
 
-  // Semantic action colors — desaturated, sleek
+  // Semantic action colors — desaturated, metallic
   action: {
-    fold: "#6a3a44",
-    foldHover: "#7d4450",
-    call: "#3a6a4a",
-    callHover: "#448055",
-    raise: "#c49a3c",
-    raiseHover: "#d4aa4b",
-    check: "#4a4a60",
-    checkHover: "#5a5a70",
-    allIn: "#a04040",
-    allInHover: "#b84848",
+    fold:      "#5a2a34",
+    foldHover: "#6d3340",
+    call:      "#2a5a3a",
+    callHover: "#347048",
+    raise:     gold.core,
+    raiseHover: gold.bright,
+    check:     "#3a3a50",
+    checkHover: "#4a4a60",
+    allIn:     "#903838",
+    allInHover: "#a84040",
   },
 
-  // Card suit colors — crisp against card face
+  // Card suit colors
   suit: {
-    spades: "#2a2a34",       // near-black on light card
-    hearts: "#c43838",
+    spades:   "#2a2a34",
+    hearts:   "#c43838",
     diamonds: "#3870c4",
-    clubs: "#2a8a50",
+    clubs:    "#2a8a50",
   },
 
   // Chips — metallic sheen
   chip: {
-    white: "#d0d0d0",
-    red: "#b04040",
-    blue: "#4060b0",
-    black: "#303038",
-    green: "#308050",
+    white: "#c0c0c8",
+    red:   "#a03838",
+    blue:  "#3858a0",
+    black: "#282830",
+    green: "#287048",
   },
 
-  // Status
+  // Status — emerald-forward
   status: {
-    online: "#3ddc84",
-    folded: "#505068",
-    allIn: "#c05050",
-    thinking: "#d4a84b",
-    winner: "#d4a84b",
+    online:   emerald.bright,
+    folded:   "#484860",
+    allIn:    "#b84848",
+    thinking: emerald.core,
+    winner:   gold.core,
   },
 } as const;
 
@@ -114,22 +152,51 @@ export const font = {
 
 export const size = {
   card: { width: 62, height: 88 },
-  radius: { xs: 3, sm: 5, md: 8, lg: 12, xl: 16 },
+  radius: { xs: 3, sm: 4, md: 6, lg: 10, xl: 14 },  // tightened: sharp but engineered
 } as const;
 
 export const shadow = {
-  sm: "0 1px 3px rgba(0,0,0,0.4)",
-  md: "0 4px 12px rgba(0,0,0,0.5)",
-  lg: "0 8px 24px rgba(0,0,0,0.6)",
-  card: "0 2px 8px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.3)",
-  cardHover: "0 6px 20px rgba(0,0,0,0.6), 0 2px 6px rgba(0,0,0,0.4)",
-  glow: (c: string) => `0 0 12px ${c}40, 0 0 4px ${c}20`,
-  glowStrong: (c: string) => `0 0 20px ${c}60, 0 0 8px ${c}30`,
+  // Standard shadows — sharp, not fuzzy
+  sm:   "0 1px 2px rgba(0,0,0,0.6)",
+  md:   "0 2px 8px rgba(0,0,0,0.7)",
+  lg:   "0 4px 16px rgba(0,0,0,0.8)",
+  // Card shadows — deep and defined
+  card: "0 2px 6px rgba(0,0,0,0.7), 0 0 1px rgba(0,0,0,0.5)",
+  cardHover: "0 4px 14px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.6)",
+  // Inset — concave metallic surfaces
+  inset:      "inset 0 1px 4px rgba(0,0,0,0.5)",
+  insetDeep:  "inset 0 2px 10px rgba(0,0,0,0.6), inset 0 0 1px rgba(0,0,0,0.3)",
+  // Bioluminescent glows — the signature effect
+  glow: (c: string) => `0 0 10px ${c}30, 0 0 3px ${c}18`,
+  glowStrong: (c: string) => `0 0 18px ${c}50, 0 0 6px ${c}28`,
+  glowNeon: (c: string) => `0 0 24px ${c}60, 0 0 8px ${c}40, 0 0 2px ${c}80`,
+  // Combined: inset + glow for "powered on" panels
+  panelActive: (c: string) => `inset 0 1px 4px rgba(0,0,0,0.4), 0 0 12px ${c}30`,
 } as const;
 
 export const transition = {
-  fast: "all 0.12s ease",
-  normal: "all 0.2s ease",
-  slow: "all 0.35s ease",
-  spring: "all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)",
+  // Hydraulic — heavy, decelerating, precise
+  fast:   "all 0.15s cubic-bezier(0.16, 1, 0.3, 1)",
+  normal: "all 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
+  slow:   "all 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
+  // Settle — for elements arriving into position
+  settle: "all 0.5s cubic-bezier(0.22, 1, 0.36, 1)",
+  // Glow — for color/shadow transitions (slightly slower, smoother)
+  glow:   "all 0.3s ease",
+} as const;
+
+// ─── Gradient border helper ─────────────────────────────────
+// CSS can't do gradient borders directly on `border`.
+// Use these as `background` on a wrapper with inner content offset by 1px,
+// or apply via `border-image` (no border-radius support) or pseudo-elements.
+// The recommended approach: a thin ::before pseudo with these as background.
+export const gradientBorder = {
+  // Vertical rim — left/right edges glow
+  vertical:   `linear-gradient(180deg, transparent 0%, ${emerald.dim}80 30%, ${emerald.mid}60 50%, ${emerald.dim}80 70%, transparent 100%)`,
+  // Horizontal rim — top/bottom edges glow
+  horizontal: `linear-gradient(90deg, transparent 0%, ${emerald.dim}80 30%, ${emerald.mid}60 50%, ${emerald.dim}80 70%, transparent 100%)`,
+  // Full frame — all edges, corners dimmer
+  frame:      `linear-gradient(135deg, ${emerald.dim}40 0%, ${emerald.mid}50 25%, ${emerald.dim}40 50%, ${emerald.mid}50 75%, ${emerald.dim}40 100%)`,
+  // Subtle — barely-there version for resting state
+  subtle:     `linear-gradient(180deg, transparent 10%, ${emerald.deep}80 50%, transparent 90%)`,
 } as const;

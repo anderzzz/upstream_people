@@ -1,5 +1,6 @@
 /**
  * Range Room — explore PLO's 270K starting hands.
+ * Emerald Void: concave panels, bioluminescent accents, deep insets.
  */
 
 import { color, font, shadow, transition } from "../theme/tokens.ts";
@@ -27,7 +28,7 @@ export function RangeRoom() {
 
         {/* Right: controls & distributions */}
         <div style={styles.sidebar}>
-          <SidePanel title="Hand Buckets" accent={color.accent.emerald}>
+          <SidePanel title="Hand Buckets" accent={color.emerald.core}>
             <p style={styles.panelDesc}>
               Rundowns, double-suited, paired, Broadway, trips...
             </p>
@@ -38,7 +39,7 @@ export function RangeRoom() {
             </div>
           </SidePanel>
 
-          <SidePanel title="Equity Distribution" accent={color.accent.gold} flex>
+          <SidePanel title="Equity Distribution" accent={color.gold.core} flex>
             <div style={styles.histPlaceholder}>
               <span style={styles.placeholderText}>D3 histogram</span>
             </div>
@@ -67,12 +68,12 @@ function SidePanel({
         ...(flex ? { flex: 1 } : {}),
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = accent;
-        e.currentTarget.style.boxShadow = shadow.glow(accent);
+        e.currentTarget.style.borderColor = `${accent}50`;
+        e.currentTarget.style.boxShadow = shadow.panelActive(accent);
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.borderColor = color.bg.border;
-        e.currentTarget.style.boxShadow = "none";
+        e.currentTarget.style.boxShadow = shadow.inset;
       }}
     >
       <h2 style={styles.sectionHeader}>{title}</h2>
@@ -86,7 +87,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "2rem",
     maxWidth: 1100,
     margin: "0 auto",
-    animation: "fadeIn 0.4s ease",
+    animation: "fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
   },
   header: {
     marginBottom: "1.5rem",
@@ -95,7 +96,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: font.mono,
     fontSize: "0.9rem",
     fontWeight: 600,
-    color: color.accent.emerald,
+    color: color.emerald.core,
     letterSpacing: "0.08em",
     textTransform: "uppercase",
     marginBottom: "0.3rem",
@@ -111,9 +112,10 @@ const styles: Record<string, React.CSSProperties> = {
   mainPanel: {
     flex: 2,
     background: color.gradient.panel,
-    borderRadius: 10,
+    borderRadius: 8,
     border: `1px solid ${color.bg.border}`,
     padding: "1.25rem",
+    boxShadow: shadow.inset,
   },
   sidebar: {
     flex: 1,
@@ -123,10 +125,11 @@ const styles: Record<string, React.CSSProperties> = {
   },
   sidePanel: {
     background: color.gradient.panel,
-    borderRadius: 10,
+    borderRadius: 8,
     border: `1px solid ${color.bg.border}`,
     padding: "1.25rem",
     transition: transition.normal,
+    boxShadow: shadow.inset,
   },
   sectionHeader: {
     fontFamily: font.mono,
@@ -142,9 +145,10 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 8,
-    border: `1px dashed ${color.bg.borderLight}`,
-    background: `${color.bg.base}60`,
+    borderRadius: 6,
+    border: `1px dashed ${color.bg.borderMid}`,
+    background: `${color.bg.abyss}80`,
+    boxShadow: shadow.insetDeep,
   },
   placeholderInner: {
     display: "flex",
@@ -154,8 +158,9 @@ const styles: Record<string, React.CSSProperties> = {
   },
   placeholderIcon: {
     fontSize: "1.5rem",
-    color: color.text.dim,
+    color: color.emerald.dim,
     opacity: 0.5,
+    filter: `drop-shadow(0 0 6px ${color.emerald.deep})`,
   },
   placeholderText: {
     fontFamily: font.mono,
@@ -184,19 +189,21 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: font.mono,
     fontSize: "0.6rem",
     color: color.text.secondary,
-    background: color.bg.elevated,
+    background: color.bg.base,
     border: `1px solid ${color.bg.border}`,
     borderRadius: 4,
     padding: "3px 8px",
     letterSpacing: "0.03em",
+    boxShadow: shadow.inset,
   },
   histPlaceholder: {
     height: 160,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 6,
-    border: `1px dashed ${color.bg.borderLight}`,
-    background: `${color.bg.base}60`,
+    borderRadius: 5,
+    border: `1px dashed ${color.bg.borderMid}`,
+    background: `${color.bg.abyss}80`,
+    boxShadow: shadow.insetDeep,
   },
 };

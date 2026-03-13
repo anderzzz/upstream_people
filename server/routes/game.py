@@ -69,6 +69,10 @@ async def game_session(websocket: WebSocket):
                 history = await bridge.run_one_hand(send)
             except Exception as e:
                 action_listener.cancel()
+                try:
+                    await action_listener
+                except asyncio.CancelledError:
+                    pass
                 await websocket.send_json({
                     "type": "error",
                     "message": f"Engine error: {e}",
@@ -76,6 +80,10 @@ async def game_session(websocket: WebSocket):
                 break
 
             action_listener.cancel()
+            try:
+                await action_listener
+            except asyncio.CancelledError:
+                pass
 
             if history is None:
                 break

@@ -1,8 +1,8 @@
 /**
- * Card — a single playing card with depth, texture, and animation.
+ * Card — a single playing card.
  *
- * Designed for the Robotic Noir aesthetic: cream parchment face,
- * dark machine-patterned back, crisp suit colors, subtle shadows.
+ * Face: cool brushed-steel parchment, crisp suit colors.
+ * Back: FR4 circuit board — dark green substrate, copper traces & vias.
  */
 
 import { CSSProperties, useMemo } from "react";
@@ -21,6 +21,18 @@ const SUIT_COLORS: Record<string, string> = {
   d: color.suit.diamonds,
   c: color.suit.clubs,
 };
+
+// ─── PCB color palette ────────────────────────────────────────
+const pcb = {
+  fr4:       "#0a2818",   // dark FR4 substrate
+  fr4Light:  "#0d3320",   // slightly lighter for depth
+  mask:      "#0c2e1c",   // solder mask green
+  copper:    "#7a5430",   // copper trace
+  copperDim: "#5c3e24",   // oxidized / recessed copper
+  copperPad: "#8a6038",   // solder pad — brighter
+  silk:      "#1a5038",   // silkscreen (subtle markings)
+  drill:     "#061a0e",   // drill hole — darkest
+} as const;
 
 interface CardProps {
   /** Card string like "As", "Td", "2c" */
@@ -61,12 +73,12 @@ export function Card({
     flexShrink: 0,
     transition: transition.normal,
     ...(animated ? {
-      animation: `cardDeal 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards`,
+      animation: `cardDeal 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards`,
       animationDelay: `${dealDelay}ms`,
       opacity: 0,
     } : {}),
     ...(reveal ? {
-      animation: `cardReveal 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards`,
+      animation: `cardReveal 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards`,
       animationDelay: `${dealDelay}ms`,
     } : {}),
     ...(glow ? {
@@ -75,29 +87,27 @@ export function Card({
   }), [w, h, r, animated, reveal, dealDelay, glow]);
 
   if (faceDown || !card) {
-    return <CardBack style={baseStyle} scale={scale} />;
+    return <CardBack style={baseStyle} scale={scale} w={w} h={h} />;
   }
 
   const rank = card.slice(0, -1);
   const suit = card.slice(-1);
   const suitColor = SUIT_COLORS[suit] ?? color.text.primary;
   const suitSymbol = SUIT_SYMBOLS[suit] ?? "?";
+
   return (
-    <div
-      className="perspective-container"
-      style={baseStyle}
-    >
-      {/* Card face */}
+    <div className="perspective-container" style={baseStyle}>
+      {/* Card face — cool brushed steel */}
       <div
         style={{
           width: "100%",
           height: "100%",
           borderRadius: r,
-          background: "linear-gradient(170deg, #f2f0eb 0%, #e8e5de 40%, #ddd9d0 100%)",
-          border: `1px solid #c8c4bc`,
+          background: "linear-gradient(170deg, #eaeaef 0%, #e0e0e8 40%, #d4d4dc 100%)",
+          border: "1px solid #a8a8b0",
           boxShadow: glow
             ? `${shadow.card}, 0 0 14px ${glow}50`
-            : shadow.card,
+            : `${shadow.card}, inset 0 1px 3px rgba(0,0,0,0.08)`,
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
@@ -145,7 +155,7 @@ export function Card({
               fontSize: 28 * scale,
               color: suitColor,
               opacity: 0.85,
-              filter: `drop-shadow(0 1px 2px rgba(0,0,0,0.1))`,
+              filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.12))",
             }}
           >
             {suitSymbol}
@@ -180,13 +190,16 @@ export function Card({
           </span>
         </div>
 
-        {/* Subtle inner border for depth */}
+        {/* Inner highlight — cool steel with emerald whisper on top edge */}
         <div
           style={{
             position: "absolute",
             inset: 1,
             borderRadius: r - 1,
-            border: "1px solid rgba(255,255,255,0.3)",
+            borderTop: "1px solid rgba(80, 255, 176, 0.06)",
+            borderLeft: "1px solid rgba(255,255,255,0.2)",
+            borderRight: "1px solid rgba(255,255,255,0.1)",
+            borderBottom: "1px solid rgba(255,255,255,0.08)",
             pointerEvents: "none",
           }}
         />
@@ -195,9 +208,28 @@ export function Card({
   );
 }
 
-/** Card back — geometric machine pattern */
-function CardBack({ style, scale }: { style: CSSProperties; scale: number }) {
+// ─── Card Back — FR4 PCB with copper traces ───────────────────
+
+function CardBack({ style, scale, w, h }: {
+  style: CSSProperties;
+  scale: number;
+  w: number;
+  h: number;
+}) {
   const r = size.radius.md * scale;
+
+  // Viewbox matches card pixel size so strokes scale naturally
+  const vw = 62;
+  const vh = 88;
+  // Trace thickness at 1x scale
+  const t = 0.8;
+  const tThin = 0.5;
+  // Pad/via sizes
+  const padR = 1.6;
+  const viaR = 1.0;
+  const drillR = 0.5;
+  // Inset for the board edge copper border
+  const edge = 4;
 
   return (
     <div className="perspective-container" style={style}>
@@ -206,67 +238,150 @@ function CardBack({ style, scale }: { style: CSSProperties; scale: number }) {
           width: "100%",
           height: "100%",
           borderRadius: r,
-          background: color.gradient.cardBack,
-          border: `1px solid ${color.bg.borderLight}`,
-          boxShadow: shadow.card,
+          background: `linear-gradient(175deg, ${pcb.fr4Light} 0%, ${pcb.fr4} 60%, #071e10 100%)`,
+          border: `1px solid ${pcb.copperDim}50`,
+          boxShadow: `${shadow.card}, inset 0 0 16px rgba(0,0,0,0.3)`,
           position: "relative",
           overflow: "hidden",
         }}
       >
-        {/* Geometric pattern — concentric border */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 4 * scale,
-            borderRadius: (r - 3) * scale,
-            border: `1.5px solid ${color.bg.borderLight}`,
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            inset: 7 * scale,
-            borderRadius: (r - 5) * scale,
-            border: `0.5px solid ${color.bg.border}`,
-          }}
-        />
-
-        {/* Center diamond pattern */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
+        <svg
+          viewBox={`0 0 ${vw} ${vh}`}
+          width={w}
+          height={h}
+          style={{ position: "absolute", inset: 0 }}
+          xmlns="http://www.w3.org/2000/svg"
         >
-          <div
-            style={{
-              width: 16 * scale,
-              height: 16 * scale,
-              border: `1.5px solid ${color.text.dim}`,
-              transform: "rotate(45deg)",
-            }}
+          {/* ── Board edge — copper border trace ── */}
+          <rect
+            x={edge} y={edge}
+            width={vw - edge * 2} height={vh - edge * 2}
+            rx={2} ry={2}
+            fill="none"
+            stroke={pcb.copperDim}
+            strokeWidth={t}
+            opacity={0.7}
           />
-        </div>
 
-        {/* Subtle diagonal lines — machine texture */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            opacity: 0.04,
-            background: `repeating-linear-gradient(
-              45deg,
-              transparent,
-              transparent 3px,
-              ${color.text.muted} 3px,
-              ${color.text.muted} 3.5px
-            )`,
-            borderRadius: r,
-          }}
-        />
+          {/* ── Horizontal traces ── */}
+          {/* Top region */}
+          <line x1={edge} y1={14} x2={22} y2={14} stroke={pcb.copper} strokeWidth={t} opacity={0.6} />
+          <line x1={28} y1={14} x2={vw - edge} y2={14} stroke={pcb.copper} strokeWidth={tThin} opacity={0.5} />
+
+          <line x1={edge} y1={20} x2={16} y2={20} stroke={pcb.copperDim} strokeWidth={tThin} opacity={0.5} />
+          <line x1={40} y1={20} x2={vw - edge} y2={20} stroke={pcb.copperDim} strokeWidth={tThin} opacity={0.45} />
+
+          {/* Center region — bus lines */}
+          <line x1={edge} y1={38} x2={vw - edge} y2={38} stroke={pcb.copper} strokeWidth={t} opacity={0.55} />
+          <line x1={10} y1={44} x2={52} y2={44} stroke={pcb.copperDim} strokeWidth={tThin} opacity={0.4} />
+          <line x1={edge} y1={50} x2={vw - edge} y2={50} stroke={pcb.copper} strokeWidth={t} opacity={0.55} />
+
+          {/* Bottom region */}
+          <line x1={edge} y1={66} x2={20} y2={66} stroke={pcb.copperDim} strokeWidth={tThin} opacity={0.5} />
+          <line x1={34} y1={66} x2={vw - edge} y2={66} stroke={pcb.copper} strokeWidth={tThin} opacity={0.45} />
+
+          <line x1={edge} y1={74} x2={vw - edge} y2={74} stroke={pcb.copperDim} strokeWidth={tThin} opacity={0.4} />
+
+          {/* ── Vertical traces ── */}
+          <line x1={14} y1={edge} x2={14} y2={38} stroke={pcb.copper} strokeWidth={t} opacity={0.55} />
+          <line x1={14} y1={50} x2={14} y2={vh - edge} stroke={pcb.copperDim} strokeWidth={tThin} opacity={0.4} />
+
+          <line x1={25} y1={14} x2={25} y2={38} stroke={pcb.copperDim} strokeWidth={tThin} opacity={0.45} />
+          <line x1={25} y1={50} x2={25} y2={74} stroke={pcb.copperDim} strokeWidth={tThin} opacity={0.4} />
+
+          <line x1={37} y1={14} x2={37} y2={38} stroke={pcb.copperDim} strokeWidth={tThin} opacity={0.45} />
+          <line x1={37} y1={50} x2={37} y2={66} stroke={pcb.copper} strokeWidth={tThin} opacity={0.5} />
+
+          <line x1={48} y1={edge} x2={48} y2={38} stroke={pcb.copper} strokeWidth={t} opacity={0.55} />
+          <line x1={48} y1={50} x2={48} y2={vh - edge} stroke={pcb.copperDim} strokeWidth={tThin} opacity={0.4} />
+
+          {/* ── Solder pads — rectangular, at intersections ── */}
+          <rect x={14 - padR} y={14 - padR} width={padR * 2} height={padR * 2} rx={0.4} fill={pcb.copperPad} opacity={0.6} />
+          <rect x={14 - padR} y={38 - padR} width={padR * 2} height={padR * 2} rx={0.4} fill={pcb.copperPad} opacity={0.6} />
+          <rect x={14 - padR} y={50 - padR} width={padR * 2} height={padR * 2} rx={0.4} fill={pcb.copperPad} opacity={0.55} />
+          <rect x={48 - padR} y={38 - padR} width={padR * 2} height={padR * 2} rx={0.4} fill={pcb.copperPad} opacity={0.6} />
+          <rect x={48 - padR} y={50 - padR} width={padR * 2} height={padR * 2} rx={0.4} fill={pcb.copperPad} opacity={0.55} />
+          <rect x={48 - padR} y={14 - padR} width={padR * 2} height={padR * 2} rx={0.4} fill={pcb.copperPad} opacity={0.55} />
+          <rect x={48 - padR} y={74 - padR} width={padR * 2} height={padR * 2} rx={0.4} fill={pcb.copperPad} opacity={0.5} />
+          <rect x={14 - padR} y={74 - padR} width={padR * 2} height={padR * 2} rx={0.4} fill={pcb.copperPad} opacity={0.5} />
+
+          {/* ── Vias — circular, copper ring with dark drill hole ── */}
+          {/* Top-left cluster */}
+          <circle cx={25} cy={14} r={viaR} fill={pcb.copperPad} opacity={0.55} />
+          <circle cx={25} cy={14} r={drillR} fill={pcb.drill} />
+
+          <circle cx={25} cy={26} r={viaR} fill={pcb.copperPad} opacity={0.5} />
+          <circle cx={25} cy={26} r={drillR} fill={pcb.drill} />
+
+          {/* Center cluster — main IC area */}
+          <circle cx={31} cy={38} r={viaR * 1.2} fill={pcb.copperPad} opacity={0.6} />
+          <circle cx={31} cy={38} r={drillR * 1.1} fill={pcb.drill} />
+
+          <circle cx={31} cy={44} r={viaR} fill={pcb.copperPad} opacity={0.5} />
+          <circle cx={31} cy={44} r={drillR} fill={pcb.drill} />
+
+          <circle cx={31} cy={50} r={viaR * 1.2} fill={pcb.copperPad} opacity={0.6} />
+          <circle cx={31} cy={50} r={drillR * 1.1} fill={pcb.drill} />
+
+          {/* Right side */}
+          <circle cx={37} cy={38} r={viaR} fill={pcb.copperPad} opacity={0.5} />
+          <circle cx={37} cy={38} r={drillR} fill={pcb.drill} />
+
+          {/* Bottom cluster */}
+          <circle cx={25} cy={66} r={viaR} fill={pcb.copperPad} opacity={0.5} />
+          <circle cx={25} cy={66} r={drillR} fill={pcb.drill} />
+
+          <circle cx={37} cy={74} r={viaR} fill={pcb.copperPad} opacity={0.5} />
+          <circle cx={37} cy={74} r={drillR} fill={pcb.drill} />
+
+          {/* Scattered small vias */}
+          <circle cx={20} cy={44} r={viaR * 0.8} fill={pcb.copperDim} opacity={0.4} />
+          <circle cx={20} cy={44} r={drillR * 0.8} fill={pcb.drill} />
+
+          <circle cx={42} cy={44} r={viaR * 0.8} fill={pcb.copperDim} opacity={0.4} />
+          <circle cx={42} cy={44} r={drillR * 0.8} fill={pcb.drill} />
+
+          <circle cx={42} cy={26} r={viaR * 0.8} fill={pcb.copperDim} opacity={0.4} />
+          <circle cx={42} cy={26} r={drillR * 0.8} fill={pcb.drill} />
+
+          <circle cx={20} cy={60} r={viaR * 0.8} fill={pcb.copperDim} opacity={0.4} />
+          <circle cx={20} cy={60} r={drillR * 0.8} fill={pcb.drill} />
+
+          <circle cx={42} cy={60} r={viaR * 0.8} fill={pcb.copperDim} opacity={0.4} />
+          <circle cx={42} cy={60} r={drillR * 0.8} fill={pcb.drill} />
+
+          {/* ── Center IC footprint — the "chip" ── */}
+          <rect
+            x={26} y={40}
+            width={10} height={8}
+            rx={0.5}
+            fill="none"
+            stroke={pcb.copper}
+            strokeWidth={0.6}
+            opacity={0.5}
+          />
+          {/* IC pins — small pads along left/right edges */}
+          {[41, 43, 45, 47].map((py) => (
+            <g key={`ic-${py}`}>
+              <rect x={24.5} y={py - 0.4} width={1.5} height={0.8} rx={0.2} fill={pcb.copperPad} opacity={0.5} />
+              <rect x={36} y={py - 0.4} width={1.5} height={0.8} rx={0.2} fill={pcb.copperPad} opacity={0.5} />
+            </g>
+          ))}
+
+          {/* ── Silkscreen — subtle "UP" text ── */}
+          <text
+            x={31} y={44.8}
+            textAnchor="middle"
+            fontFamily="monospace"
+            fontSize={3.2}
+            fontWeight={700}
+            fill={pcb.silk}
+            opacity={0.5}
+            letterSpacing={0.5}
+          >
+            UP
+          </text>
+        </svg>
       </div>
     </div>
   );

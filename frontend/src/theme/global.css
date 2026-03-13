@@ -1,4 +1,4 @@
-/* Upstream People — Robotic Noir */
+/* Upstream People — Emerald Void */
 
 *,
 *::before,
@@ -9,16 +9,30 @@
 }
 
 :root {
-  --bg-base: #0e0e11;
-  --bg-surface: #161619;
-  --bg-elevated: #1e1e23;
-  --bg-border: #2a2a32;
-  --text-primary: #d8d8e0;
-  --text-secondary: #808098;
-  --text-muted: #505068;
-  --accent-gold: #d4a84b;
-  --accent-cyan: #4ac8d4;
-  --accent-emerald: #3ddc84;
+  --bg-abyss: #050506;
+  --bg-base: #0A0A0B;
+  --bg-surface: #111113;
+  --bg-elevated: #18181c;
+  --bg-border: #1e1e26;
+  --bg-border-mid: #2a2a34;
+
+  --text-primary: #d0d0dc;
+  --text-secondary: #707088;
+  --text-muted: #484860;
+  --text-dim: #2a2a3a;
+
+  --emerald-neon: #00FF9D;
+  --emerald-bright: #50FFB0;
+  --emerald-core: #3ddc84;
+  --emerald-mid: #2a9d5e;
+  --emerald-dim: #1a6b3e;
+  --emerald-deep: #0d3a20;
+  --emerald-trace: #072818;
+
+  --gold-core: #d4a84b;
+  --gold-bright: #e8c060;
+  --gold-muted: #8a7030;
+
   --font-body: "Inter", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", monospace;
 }
@@ -26,7 +40,7 @@
 html,
 body {
   height: 100%;
-  background: var(--bg-base);
+  background: var(--bg-abyss);
   color: var(--text-primary);
   font-family: var(--font-body);
   font-size: 15px;
@@ -42,13 +56,13 @@ body {
 }
 
 a {
-  color: var(--accent-cyan);
+  color: var(--emerald-core);
   text-decoration: none;
-  transition: color 0.15s ease;
+  transition: color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 a:hover {
-  color: var(--accent-gold);
+  color: var(--emerald-bright);
 }
 
 code,
@@ -56,7 +70,8 @@ pre {
   font-family: var(--font-mono);
 }
 
-/* Scrollbar */
+/* ─── Scrollbar — obsidian ────────────────────────────────── */
+
 ::-webkit-scrollbar {
   width: 5px;
 }
@@ -64,14 +79,14 @@ pre {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2a2a32;
+  background: #1e1e26;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3a3a44;
+  background: #2a2a34;
 }
 
-/* ─── Animations ─────────────────────────────────────── */
+/* ─── Animations — hydraulic, weighted ────────────────────── */
 
 @keyframes fadeIn {
   from { opacity: 0; }
@@ -79,35 +94,41 @@ pre {
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(12px); }
+  from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes slideDown {
-  from { opacity: 0; transform: translateY(-8px); }
+  from { opacity: 0; transform: translateY(-6px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Card deal — heavy settle, no bounce */
 @keyframes cardDeal {
   from {
     opacity: 0;
-    transform: translateY(-30px) scale(0.85) rotateX(15deg);
+    transform: translateY(-24px) scale(0.92);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(1px) scale(1.01);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1) rotateX(0deg);
+    transform: translateY(0) scale(1);
   }
 }
 
+/* Card reveal — crisp flip, mechanical */
 @keyframes cardReveal {
-  0% { transform: rotateY(90deg) scale(0.9); opacity: 0.5; }
-  50% { transform: rotateY(0deg) scale(1.04); opacity: 1; }
+  0% { transform: rotateY(90deg) scale(0.95); opacity: 0.5; }
+  60% { transform: rotateY(0deg) scale(1.02); opacity: 1; }
   100% { transform: rotateY(0deg) scale(1); opacity: 1; }
 }
 
 @keyframes pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  50% { opacity: 0.55; }
 }
 
 @keyframes shimmer {
@@ -115,14 +136,16 @@ pre {
   100% { background-position: 200% center; }
 }
 
-@keyframes subtleFloat {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-3px); }
+/* Emerald glow pulse — bioluminescent heartbeat */
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(0, 255, 157, 0.08); }
+  50% { box-shadow: 0 0 16px rgba(0, 255, 157, 0.18); }
 }
 
-@keyframes glowPulse {
-  0%, 100% { box-shadow: 0 0 8px rgba(212, 168, 75, 0.15); }
-  50% { box-shadow: 0 0 16px rgba(212, 168, 75, 0.3); }
+/* Status dot breathing */
+@keyframes breathe {
+  0%, 100% { opacity: 0.7; box-shadow: 0 0 4px rgba(80, 255, 176, 0.2); }
+  50% { opacity: 1; box-shadow: 0 0 8px rgba(80, 255, 176, 0.4); }
 }
 
 @keyframes scanline {
@@ -130,32 +153,87 @@ pre {
   100% { transform: translateY(100%); }
 }
 
-/* Utility animation classes */
+/* Gradient border sweep — for active/hovered panels */
+@keyframes rimSweep {
+  0% { opacity: 0; }
+  50% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ─── Utility classes ─────────────────────────────────────── */
+
 .animate-fade-in {
-  animation: fadeIn 0.3s ease forwards;
+  animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-slide-up {
-  animation: slideUp 0.4s ease forwards;
+  animation: slideUp 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .animate-card-deal {
-  animation: cardDeal 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation: cardDeal 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .animate-card-reveal {
-  animation: cardReveal 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation: cardReveal 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .animate-pulse {
-  animation: pulse 2s ease-in-out infinite;
+  animation: pulse 2.5s ease-in-out infinite;
 }
 
 .animate-glow-pulse {
-  animation: glowPulse 3s ease-in-out infinite;
+  animation: glowPulse 3.5s ease-in-out infinite;
+}
+
+.animate-breathe {
+  animation: breathe 3s ease-in-out infinite;
 }
 
 /* Perspective container for 3D card transforms */
 .perspective-container {
   perspective: 800px;
+}
+
+/* ─── Gradient border panel ────────────────────────────────
+   Apply to a container. The ::before creates the gradient rim.
+   Set --rim-color via inline style to control the glow color.
+   ──────────────────────────────────────────────────────────── */
+
+.rim-panel {
+  position: relative;
+}
+
+.rim-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    var(--rim-color, rgba(26, 107, 62, 0.5)) 50%,
+    transparent 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.rim-panel:hover::before,
+.rim-panel.rim-active::before {
+  opacity: 1;
+}
+
+/* ─── Selection color ─────────────────────────────────────── */
+
+::selection {
+  background: rgba(0, 255, 157, 0.15);
+  color: #d0d0dc;
 }

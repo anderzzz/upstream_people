@@ -1,5 +1,8 @@
 /**
- * Lobby — the landing page. Sleek, dark, robotic.
+ * Lobby — the landing page. Emerald Void aesthetic.
+ *
+ * Obsidian surfaces, bioluminescent emerald accents, gold for stakes.
+ * "The house always wins."
  */
 
 import { Link } from "react-router-dom";
@@ -12,21 +15,24 @@ const rooms = [
     title: "The Table",
     desc: "Play PLO against AI opponents. Pot-limit. No mercy.",
     icon: "\u2660",
-    accentColor: color.accent.gold,
+    accentColor: color.gold.core,
+    glowColor: color.gold.muted,
   },
   {
     to: "/lab",
     title: "The Lab",
     desc: "Analyze hands. Study spots. Train your reads.",
     icon: "\u2394",
-    accentColor: color.accent.cyan,
+    accentColor: color.emerald.bright,
+    glowColor: color.emerald.dim,
   },
   {
     to: "/ranges",
     title: "Range Room",
     desc: "Explore 270K starting hands. Blockers. Equity distributions.",
     icon: "\u25A6",
-    accentColor: color.accent.emerald,
+    accentColor: color.emerald.core,
+    glowColor: color.emerald.dim,
   },
   {
     to: "/strategy",
@@ -34,6 +40,7 @@ const rooms = [
     desc: "Game trees. Nash equilibria. Watch the solver think.",
     icon: "\u2261",
     accentColor: color.accent.silver,
+    glowColor: "#404050",
   },
 ];
 
@@ -43,7 +50,7 @@ export function Lobby() {
       {/* Hero */}
       <div style={styles.hero}>
         <div style={styles.heroInner}>
-          {/* Decorative line */}
+          {/* Decorative rim line */}
           <div style={styles.decorLine} />
 
           <h1 style={styles.title}>UPSTREAM PEOPLE</h1>
@@ -72,17 +79,17 @@ export function Lobby() {
             style={styles.roomCard}
             onMouseEnter={(e) => {
               const el = e.currentTarget;
-              el.style.borderColor = room.accentColor;
-              el.style.background = color.bg.elevated;
+              el.style.borderColor = `${room.glowColor}80`;
+              el.style.background = color.gradient.panelHover;
               el.style.transform = "translateY(-2px)";
-              el.style.boxShadow = shadow.glow(room.accentColor);
+              el.style.boxShadow = `${shadow.inset}, ${shadow.glow(room.accentColor)}`;
             }}
             onMouseLeave={(e) => {
               const el = e.currentTarget;
               el.style.borderColor = color.bg.border;
               el.style.background = color.gradient.panel;
               el.style.transform = "translateY(0)";
-              el.style.boxShadow = "none";
+              el.style.boxShadow = shadow.inset;
             }}
           >
             <div style={styles.roomHeader}>
@@ -107,7 +114,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "2.5rem 2rem",
     maxWidth: 880,
     margin: "0 auto",
-    animation: "fadeIn 0.4s ease",
+    animation: "fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
   },
 
   hero: {
@@ -123,9 +130,9 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   decorLine: {
-    width: 40,
+    width: 60,
     height: 1,
-    background: `linear-gradient(90deg, transparent, ${color.text.dim}, transparent)`,
+    background: `linear-gradient(90deg, transparent, ${color.emerald.dim}80, transparent)`,
   },
 
   title: {
@@ -143,7 +150,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   dot: {
-    color: color.accent.gold,
+    color: color.emerald.core,
   },
 
   cardRow: {
@@ -165,11 +172,12 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: "column",
     padding: "1.25rem 1.5rem",
     background: color.gradient.panel,
-    borderRadius: 10,
+    borderRadius: 8,
     border: `1px solid ${color.bg.border}`,
     textDecoration: "none",
     transition: transition.normal,
     position: "relative",
+    boxShadow: shadow.inset,
   },
 
   roomHeader: {
@@ -182,7 +190,8 @@ const styles: Record<string, React.CSSProperties> = {
   roomIcon: {
     fontFamily: font.mono,
     fontSize: "1rem",
-    opacity: 0.7,
+    opacity: 0.8,
+    filter: "drop-shadow(0 0 3px currentColor)",
   },
 
   roomTitle: {
@@ -200,7 +209,7 @@ const styles: Record<string, React.CSSProperties> = {
 
   roomArrow: {
     fontSize: "0.85rem",
-    opacity: 0.4,
+    opacity: 0.35,
     marginTop: "0.75rem",
     fontFamily: font.mono,
   },

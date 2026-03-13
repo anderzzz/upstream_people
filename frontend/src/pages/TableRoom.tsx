@@ -1,8 +1,8 @@
 /**
  * The Table — live PLO game room.
  *
- * Robotic Noir aesthetic: dark felt, metallic accents, clean geometry.
- * Connects to backend via WebSocket for real-time play.
+ * Emerald Void aesthetic: obsidian felt, emerald rim lighting,
+ * gold for the money, deep concave panels. The AI sits at the table.
  */
 
 import { useState } from "react";
@@ -49,7 +49,6 @@ export function TableRoom() {
 
   // Compute opponent seat angles dynamically
   const opponentsWithAngles = state.opponents.map((opp, i) => {
-    // Spread opponents across the top half (180-360 degrees)
     const startAngle = 200;
     const endAngle = 340;
     const step = state.opponents.length > 1
@@ -75,6 +74,9 @@ export function TableRoom() {
         <div style={styles.felt}>
           <div style={styles.feltInner}>
             <div style={styles.feltRail} />
+
+            {/* Emerald rim glow on felt edge */}
+            <div style={styles.feltRimGlow} />
 
             {/* Community cards */}
             <div style={styles.boardSection}>
@@ -249,11 +251,11 @@ function Lobby({
           disabled={status === "starting"}
           style={styles.lobbyStartBtn}
           onMouseEnter={(e) => {
-            e.currentTarget.style.boxShadow = shadow.glowStrong(color.accent.gold);
+            e.currentTarget.style.boxShadow = shadow.glowStrong(color.emerald.core);
             e.currentTarget.style.transform = "translateY(-1px)";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.boxShadow = shadow.glow(color.accent.gold);
+            e.currentTarget.style.boxShadow = shadow.glow(color.emerald.core);
             e.currentTarget.style.transform = "translateY(0)";
           }}
         >
@@ -299,7 +301,7 @@ function OpponentSeat({
         flexDirection: "column",
         alignItems: "center",
         gap: 3,
-        opacity: opponent.is_folded ? 0.4 : 1,
+        opacity: opponent.is_folded ? 0.35 : 1,
         transition: transition.normal,
       }}
     >
@@ -323,14 +325,16 @@ function OpponentSeat({
       <div
         style={{
           background: color.gradient.panel,
-          border: `1px solid ${isDealer ? color.accent.gold : color.bg.border}`,
-          borderRadius: 6,
+          border: `1px solid ${isDealer ? color.gold.muted : color.bg.border}`,
+          borderRadius: 5,
           padding: "3px 8px",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           minWidth: 80,
-          boxShadow: isDealer ? shadow.glow(color.accent.gold) : shadow.sm,
+          boxShadow: isDealer
+            ? `${shadow.inset}, ${shadow.glow(color.gold.core)}`
+            : shadow.inset,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -352,7 +356,7 @@ function OpponentSeat({
           style={{
             fontFamily: font.mono,
             fontSize: "0.6rem",
-            color: color.text.secondary,
+            color: color.gold.muted,
           }}
         >
           ${opponent.stack.toLocaleString()}
@@ -365,7 +369,7 @@ function OpponentSeat({
           style={{
             fontFamily: font.mono,
             fontSize: "0.55rem",
-            color: color.accent.gold,
+            color: color.gold.core,
             opacity: 0.8,
           }}
         >
@@ -533,11 +537,11 @@ function ActionPanel({
                 }
                 style={styles.quickSizeBtn}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = color.accent.gold;
+                  e.currentTarget.style.borderColor = color.emerald.dim;
                   e.currentTarget.style.color = color.text.primary;
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = color.bg.borderLight;
+                  e.currentTarget.style.borderColor = color.bg.borderMid;
                   e.currentTarget.style.color = color.text.secondary;
                 }}
               >
@@ -577,19 +581,19 @@ function ActionButton({
         fontWeight: 600,
         letterSpacing: "0.04em",
         textTransform: "uppercase" as const,
-        color: primary ? "#0e0e11" : color.text.primary,
+        color: primary ? "#050506" : color.text.primary,
         background: primary
           ? `linear-gradient(180deg, ${btnColor} 0%, ${hoverColor} 100%)`
           : "transparent",
         border: primary ? "none" : `1px solid ${btnColor}`,
-        borderRadius: 8,
+        borderRadius: 6,
         cursor: "pointer",
         transition: transition.fast,
         boxShadow: primary ? shadow.glow(btnColor) : "none",
       }}
       onMouseEnter={(e) => {
         if (!primary) {
-          e.currentTarget.style.background = `${btnColor}30`;
+          e.currentTarget.style.background = `${btnColor}25`;
           e.currentTarget.style.borderColor = hoverColor;
         } else {
           e.currentTarget.style.boxShadow = shadow.glowStrong(btnColor);
@@ -635,7 +639,7 @@ function HandResultOverlay({
         <h2
           style={{
             ...styles.overlayTitle,
-            color: isWin ? color.status.winner : heroProfit < 0 ? color.status.allIn : color.text.primary,
+            color: isWin ? color.emerald.bright : heroProfit < 0 ? color.status.allIn : color.text.primary,
           }}
         >
           {isWin ? `+$${heroProfit}` : heroProfit < 0 ? `-$${Math.abs(heroProfit)}` : "Break Even"}
@@ -698,13 +702,13 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "center",
     gap: "0.75rem",
     padding: "0.4rem 0",
-    background: `linear-gradient(180deg, ${color.bg.surface}cc 0%, transparent 100%)`,
+    background: `linear-gradient(180deg, ${color.bg.base}dd 0%, transparent 100%)`,
   },
   phaseLabel: {
     fontFamily: font.mono,
     fontSize: "0.7rem",
     fontWeight: 700,
-    color: color.accent.gold,
+    color: color.emerald.core,
     letterSpacing: "0.12em",
   },
   phaseDivider: {
@@ -733,21 +737,29 @@ const styles: Record<string, React.CSSProperties> = {
     height: 380,
     borderRadius: "50%",
     background: color.gradient.feltSurface,
-    border: `2px solid ${color.felt.accent}40`,
+    border: `2px solid ${color.felt.accent}30`,
     position: "relative",
-    boxShadow: `inset 0 0 60px rgba(0,0,0,0.3), 0 0 40px rgba(0,0,0,0.4)`,
+    boxShadow: `inset 0 0 60px rgba(0,0,0,0.4), 0 0 50px rgba(0,0,0,0.5)`,
   },
   feltInner: {
     position: "absolute",
     inset: 6,
     borderRadius: "50%",
-    border: `1px solid ${color.felt.accent}20`,
+    border: `1px solid ${color.felt.accent}18`,
   },
   feltRail: {
     position: "absolute",
     inset: -3,
     borderRadius: "50%",
-    border: `3px solid ${color.felt.accent}15`,
+    border: `3px solid ${color.felt.accent}10`,
+  },
+  // Emerald rim glow around the felt edge
+  feltRimGlow: {
+    position: "absolute",
+    inset: -1,
+    borderRadius: "50%",
+    boxShadow: `inset 0 0 30px ${color.emerald.deep}30, 0 0 20px ${color.emerald.deep}15`,
+    pointerEvents: "none",
   },
 
   boardSection: {
@@ -769,8 +781,8 @@ const styles: Record<string, React.CSSProperties> = {
     width: size.card.width * 1.05,
     height: size.card.height * 1.05,
     borderRadius: size.radius.md,
-    border: `1px dashed ${color.felt.accent}30`,
-    background: `${color.felt.deep}40`,
+    border: `1px dashed ${color.felt.accent}25`,
+    background: `${color.felt.deep}50`,
   },
 
   potDisplay: {
@@ -793,14 +805,14 @@ const styles: Record<string, React.CSSProperties> = {
     width: 10,
     height: 10,
     borderRadius: "50%",
-    border: "1px solid rgba(255,255,255,0.15)",
+    border: "1px solid rgba(255,255,255,0.1)",
   },
   potAmount: {
     fontFamily: font.mono,
     fontSize: "0.85rem",
     fontWeight: 700,
-    color: color.accent.gold,
-    textShadow: "0 0 8px rgba(212,168,75,0.3)",
+    color: color.gold.core,
+    textShadow: `0 0 8px ${color.gold.muted}50`,
   },
 
   // Hero section
@@ -810,7 +822,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     gap: "0.6rem",
     padding: "0.5rem 2rem 1rem",
-    background: `linear-gradient(180deg, transparent 0%, ${color.bg.base}cc 30%, ${color.bg.base} 100%)`,
+    background: `linear-gradient(180deg, transparent 0%, ${color.bg.abyss}cc 30%, ${color.bg.abyss} 100%)`,
   },
   heroInfo: {
     display: "flex",
@@ -834,7 +846,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: font.mono,
     fontSize: "0.75rem",
     fontWeight: 500,
-    color: color.accent.gold,
+    color: color.gold.core,
   },
   heroCards: {
     display: "flex",
@@ -844,8 +856,8 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "0.5rem",
     fontFamily: font.mono,
     fontWeight: 700,
-    color: color.bg.base,
-    background: color.accent.gold,
+    color: color.bg.abyss,
+    background: color.gold.core,
     borderRadius: 3,
     padding: "0 3px",
     lineHeight: "14px",
@@ -881,7 +893,7 @@ const styles: Record<string, React.CSSProperties> = {
     letterSpacing: "0.04em",
   },
   actionInfoValue: {
-    color: color.text.secondary,
+    color: color.gold.muted,
     fontWeight: 600,
   },
   actionInfoDivider: {
@@ -914,13 +926,14 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 2,
     position: "relative",
     overflow: "hidden",
+    boxShadow: shadow.inset,
   },
   sliderFill: {
     position: "absolute",
     left: 0,
     top: 0,
     height: "100%",
-    background: `linear-gradient(90deg, ${color.accent.goldMuted}, ${color.accent.gold})`,
+    background: `linear-gradient(90deg, ${color.emerald.dim}, ${color.emerald.core})`,
     borderRadius: 2,
     pointerEvents: "none",
   },
@@ -946,7 +959,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     color: color.text.secondary,
     background: "transparent",
-    border: `1px solid ${color.bg.borderLight}`,
+    border: `1px solid ${color.bg.borderMid}`,
     borderRadius: 4,
     padding: "2px 10px",
     cursor: "pointer",
@@ -958,7 +971,8 @@ const styles: Record<string, React.CSSProperties> = {
   overlay: {
     position: "absolute",
     inset: 0,
-    background: "rgba(0,0,0,0.7)",
+    background: color.bg.overlay,
+    backdropFilter: "blur(8px)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -967,10 +981,11 @@ const styles: Record<string, React.CSSProperties> = {
   overlayPanel: {
     background: color.gradient.panel,
     border: `1px solid ${color.bg.border}`,
-    borderRadius: 12,
+    borderRadius: 10,
     padding: "1.5rem 2rem",
     minWidth: 300,
     textAlign: "center",
+    boxShadow: `${shadow.lg}, ${shadow.glow(color.emerald.deep)}`,
   },
   overlayTitle: {
     fontFamily: font.mono,
@@ -997,13 +1012,14 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     letterSpacing: "0.04em",
     textTransform: "uppercase",
-    color: "#0e0e11",
-    background: `linear-gradient(180deg, ${color.accent.gold} 0%, ${color.accent.goldMuted} 100%)`,
+    color: "#050506",
+    background: `linear-gradient(180deg, ${color.emerald.core} 0%, ${color.emerald.mid} 100%)`,
     border: "none",
-    borderRadius: 8,
+    borderRadius: 6,
     padding: "0.55rem 1.5rem",
     cursor: "pointer",
-    boxShadow: shadow.glow(color.accent.gold),
+    boxShadow: shadow.glow(color.emerald.core),
+    transition: transition.fast,
   },
   overlayBtnSecondary: {
     fontFamily: font.mono,
@@ -1013,10 +1029,11 @@ const styles: Record<string, React.CSSProperties> = {
     textTransform: "uppercase",
     color: color.text.secondary,
     background: "transparent",
-    border: `1px solid ${color.bg.border}`,
-    borderRadius: 8,
+    border: `1px solid ${color.bg.borderMid}`,
+    borderRadius: 6,
     padding: "0.55rem 1.5rem",
     cursor: "pointer",
+    transition: transition.fast,
   },
 
   // Standings
@@ -1037,7 +1054,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: color.text.secondary,
   },
   standingsStack: {
-    color: color.accent.gold,
+    color: color.gold.core,
     fontWeight: 600,
   },
 
@@ -1047,7 +1064,7 @@ const styles: Record<string, React.CSSProperties> = {
     bottom: 0,
     left: 0,
     right: 0,
-    background: "rgba(200,50,50,0.9)",
+    background: "rgba(180,40,40,0.9)",
     color: "#fff",
     fontFamily: font.mono,
     fontSize: "0.7rem",
@@ -1067,21 +1084,23 @@ const styles: Record<string, React.CSSProperties> = {
   lobbyPanel: {
     background: color.gradient.panel,
     border: `1px solid ${color.bg.border}`,
-    borderRadius: 12,
+    borderRadius: 10,
     padding: "2rem",
     minWidth: 320,
     display: "flex",
     flexDirection: "column",
     gap: "1rem",
+    boxShadow: `${shadow.lg}, ${shadow.inset}`,
   },
   lobbyTitle: {
     fontFamily: font.mono,
     fontSize: "1.2rem",
     fontWeight: 700,
-    color: color.accent.gold,
+    color: color.emerald.bright,
     letterSpacing: "0.12em",
     textAlign: "center",
     margin: 0,
+    textShadow: `0 0 20px ${color.emerald.dim}40`,
   },
   lobbyField: {
     display: "flex",
@@ -1100,11 +1119,12 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: font.mono,
     fontSize: "0.75rem",
     color: color.text.primary,
-    background: color.bg.elevated,
+    background: color.bg.base,
     border: `1px solid ${color.bg.border}`,
-    borderRadius: 6,
+    borderRadius: 5,
     padding: "0.4rem 0.6rem",
     outline: "none",
+    boxShadow: shadow.inset,
   },
   lobbyStartBtn: {
     fontFamily: font.mono,
@@ -1112,14 +1132,15 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 700,
     letterSpacing: "0.08em",
     textTransform: "uppercase",
-    color: "#0e0e11",
-    background: `linear-gradient(180deg, ${color.accent.gold} 0%, ${color.accent.goldMuted} 100%)`,
+    color: "#050506",
+    background: `linear-gradient(180deg, ${color.emerald.core} 0%, ${color.emerald.mid} 100%)`,
     border: "none",
-    borderRadius: 8,
+    borderRadius: 6,
     padding: "0.65rem 1.5rem",
     cursor: "pointer",
-    boxShadow: shadow.glow(color.accent.gold),
+    boxShadow: shadow.glow(color.emerald.core),
     marginTop: "0.5rem",
+    transition: transition.fast,
   },
   lobbyError: {
     fontFamily: font.mono,

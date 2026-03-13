@@ -1,8 +1,9 @@
 /**
  * Strategy Map — game trees, CFR convergence, Nash equilibria.
+ * Emerald Void: deep concave panels, emerald data bars, gold for EV.
  */
 
-import { color, font, transition } from "../theme/tokens.ts";
+import { color, font, shadow, transition } from "../theme/tokens.ts";
 
 export function StrategyMap() {
   return (
@@ -77,7 +78,7 @@ export function StrategyMap() {
                       style={{
                         ...styles.barFill,
                         width: `${(a.ev / 100) * 100}%`,
-                        background: `linear-gradient(90deg, ${a.barColor}80, ${a.barColor})`,
+                        background: `linear-gradient(90deg, ${a.barColor}60, ${a.barColor})`,
                       }}
                     />
                   </div>
@@ -97,7 +98,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "2rem",
     maxWidth: 1100,
     margin: "0 auto",
-    animation: "fadeIn 0.4s ease",
+    animation: "fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
   },
   header: {
     marginBottom: "1.5rem",
@@ -122,9 +123,10 @@ const styles: Record<string, React.CSSProperties> = {
   mainPanel: {
     flex: 3,
     background: color.gradient.panel,
-    borderRadius: 10,
+    borderRadius: 8,
     border: `1px solid ${color.bg.border}`,
     padding: "1.25rem",
+    boxShadow: shadow.inset,
   },
   sidebar: {
     flex: 2,
@@ -134,10 +136,11 @@ const styles: Record<string, React.CSSProperties> = {
   },
   sidePanel: {
     background: color.gradient.panel,
-    borderRadius: 10,
+    borderRadius: 8,
     border: `1px solid ${color.bg.border}`,
     padding: "1.25rem",
     transition: transition.normal,
+    boxShadow: shadow.inset,
   },
   sectionHeader: {
     fontFamily: font.mono,
@@ -153,9 +156,10 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 8,
-    border: `1px dashed ${color.bg.borderLight}`,
-    background: `${color.bg.base}60`,
+    borderRadius: 6,
+    border: `1px dashed ${color.bg.borderMid}`,
+    background: `${color.bg.abyss}80`,
+    boxShadow: shadow.insetDeep,
   },
   placeholderInner: {
     display: "flex",
@@ -165,8 +169,9 @@ const styles: Record<string, React.CSSProperties> = {
   },
   placeholderIcon: {
     fontSize: "1.5rem",
-    color: color.text.dim,
+    color: color.emerald.dim,
     opacity: 0.5,
+    filter: `drop-shadow(0 0 6px ${color.emerald.deep})`,
   },
   placeholderText: {
     fontFamily: font.mono,
@@ -185,9 +190,10 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 6,
-    border: `1px dashed ${color.bg.borderLight}`,
-    background: `${color.bg.base}60`,
+    borderRadius: 5,
+    border: `1px dashed ${color.bg.borderMid}`,
+    background: `${color.bg.abyss}80`,
+    boxShadow: shadow.insetDeep,
   },
 
   // Strategy bars
@@ -212,14 +218,15 @@ const styles: Record<string, React.CSSProperties> = {
   barTrack: {
     flex: 1,
     height: 6,
-    background: color.bg.elevated,
+    background: color.bg.base,
     borderRadius: 3,
     overflow: "hidden",
+    boxShadow: shadow.inset,
   },
   barFill: {
     height: "100%",
     borderRadius: 3,
-    transition: "width 0.6s ease",
+    transition: "width 0.5s cubic-bezier(0.16, 1, 0.3, 1)",
   },
   barPct: {
     fontFamily: font.mono,
@@ -243,7 +250,7 @@ const styles: Record<string, React.CSSProperties> = {
   evValue: {
     fontFamily: font.mono,
     fontSize: "0.62rem",
-    color: color.accent.gold,
+    color: color.gold.core,
     width: 30,
     textAlign: "right",
   },

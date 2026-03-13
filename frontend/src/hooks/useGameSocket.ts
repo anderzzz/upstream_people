@@ -152,34 +152,48 @@ function reducer(state: GameState, action: GameAction): GameState {
 
 // ── Hook ──
 
-const WS_URL = "ws://localhost:8000/game/ws";
+const WS_URL = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/game/ws`;
 
 export function useGameSocket() {
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   const wsRef = useRef<WebSocket | null>(null);
 
-  // Connect on mount
+  // Connect on mount (handles React strict-mode double-mount)
   useEffect(() => {
+    let cancelled = false;
     const ws = new WebSocket(WS_URL);
-    wsRef.current = ws;
+
+    ws.onopen = () => {
+      if (cancelled) {
+        ws.close();
+        return;
+      }
+      wsRef.current = ws;
+    };
 
     ws.onmessage = (event) => {
+      if (cancelled) return;
       const msg = JSON.parse(event.data);
-      // Dispatch the message directly — types match
       dispatch(msg as GameAction);
     };
 
     ws.onerror = () => {
+      if (cancelled) return;
       dispatch({ type: "error", message: "WebSocket connection error" });
     };
 
     ws.onclose = () => {
-      wsRef.current = null;
+      if (!cancelled && wsRef.current === ws) {
+        wsRef.current = null;
+      }
     };
 
     return () => {
+      cancelled = true;
       ws.close();
-      wsRef.current = null;
+      if (wsRef.current === ws) {
+        wsRef.current = null;
+      }
     };
   }, []);
 
