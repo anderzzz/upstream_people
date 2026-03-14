@@ -64,7 +64,9 @@ def compute_hand_entry(args: tuple) -> tuple[str, dict]:
     for n_opp in range(1, max_opponents + 1):
         # Build player list: hero hand + n_opp full ranges
         players: list[PLOHand | Range] = [hand] + [full_range] * n_opp
-        rng_key = jax.random.PRNGKey(hash(hand) % (2**31))
+        rng_key = jax.random.PRNGKey(
+            sum(c * (52 ** i) for i, c in enumerate(hand)) % (2**31)
+        )
         result = equity_multiway(players, board=(), num_samples=num_samples, rng_key=rng_key)
         hero_result = result.results[0]
         equities[str(n_opp)] = {

@@ -155,6 +155,10 @@ def _all_plo_hands() -> list[PLOHand]:
     return [tuple(sorted(combo)) for combo in combinations(range(52), 4)]
 
 
+# Module-level constant: computed once, reused by Range.full() and others.
+ALL_PLO_HANDS: list[PLOHand] = _all_plo_hands()
+
+
 class Range:
     """A range of PLO starting hands with weights.
 
@@ -217,7 +221,7 @@ class Range:
     @classmethod
     def full(cls) -> Range:
         """All 270,725 PLO hands with weight 1.0."""
-        return cls({hand: 1.0 for hand in _all_plo_hands()})
+        return cls({hand: 1.0 for hand in ALL_PLO_HANDS})
 
     @classmethod
     def from_hands(cls, hands: list[PLOHand], weight: float = 1.0) -> Range:
