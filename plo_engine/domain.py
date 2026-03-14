@@ -490,10 +490,14 @@ def _find_pair_rank(hand: PLOHand, board: Board) -> int | None:
 def _analyze_draws(
     hand: PLOHand, board: Board, bt: BoardTexture,
 ) -> tuple[DrawType, int, int]:
-    """Analyze draws. Returns (draw_flags, nut_outs, total_outs)."""
+    """Analyze draws. Returns (draw_flags, nut_outs, total_outs).
+
+    Tracks out *cards* as sets to avoid double-counting when a single card
+    completes both a flush and a straight draw simultaneously.
+    """
     draws = DrawType.NONE
-    total_outs = 0
-    nut_outs = 0
+    all_out_cards: set[int] = set()
+    nut_out_cards: set[int] = set()
 
     if len(board) >= 5:
         # No draws on the river
@@ -507,38 +511,49 @@ def _analyze_draws(
     ):
         fd_result = _check_flush_draw(hand, board, bt, dead_cards)
         draws = draws | fd_result[0]
-        total_outs += fd_result[1]
-        nut_outs += fd_result[2]
+        all_out_cards |= fd_result[1]
+        nut_out_cards |= fd_result[2]
 
     # Straight draw analysis
     sd_result = _check_straight_draws(hand, board, dead_cards)
     draws = draws | sd_result[0]
-    total_outs += sd_result[1]
-    nut_outs += sd_result[2]
+    all_out_cards |= sd_result[1]
+    nut_out_cards |= sd_result[2]
 
     # Set draw (pocket pair)
     hand_ranks = [c // 4 for c in hand]
     for r in set(hand_ranks):
         if hand_ranks.count(r) >= 2 and r not in [c // 4 for c in board]:
             draws = draws | DrawType.SET_DRAW
-            total_outs += 2  # 2 remaining cards of that rank
+            for suit in range(4):
+                card = r * 4 + suit
+                if card not in dead_cards:
+                    all_out_cards.add(card)
             break
 
     # Full house draw (two pair on board, or set already)
     if category_of(_partial_hand_rank(hand, board)) == 2:
         draws = draws | DrawType.FULL_HOUSE_DRAW
-        total_outs += 4  # approximate
+        # Cards that pair any of our paired ranks
+        hand_rank_set = set(hand_ranks)
+        board_rank_set = set(c // 4 for c in board)
+        paired_ranks = hand_rank_set & board_rank_set
+        for r in paired_ranks:
+            for suit in range(4):
+                card = r * 4 + suit
+                if card not in dead_cards:
+                    all_out_cards.add(card)
 
-    return draws, nut_outs, total_outs
+    return draws, len(nut_out_cards), len(all_out_cards)
 
 
 def _check_flush_draw(
     hand: PLOHand, board: Board, bt: BoardTexture, dead_cards: set[int],
-) -> tuple[DrawType, int, int]:
-    """Check for flush draws. Returns (draw_type, outs, nut_outs)."""
+) -> tuple[DrawType, set[int], set[int]]:
+    """Check for flush draws. Returns (draw_type, out_cards, nut_out_cards)."""
     draws = DrawType.NONE
-    outs = 0
-    nut_outs = 0
+    out_cards: set[int] = set()
+    nut_out_cards: set[int] = set()
 
     for suit in range(4):
         board_count = sum(1 for c in board if c % 4 == suit)
@@ -546,37 +561,36 @@ def _check_flush_draw(
 
         if board_count >= 2 and hand_count >= 2:
             # Flush draw: need 1 more card of this suit
-            remaining = 13 - board_count - hand_count
-            # But subtract dead cards of this suit
-            dead_of_suit = sum(1 for c in dead_cards if c % 4 == suit)
-            available = 13 - dead_of_suit
-            flush_outs = available
+            # Collect actual card ints that complete the flush
+            flush_cards = {
+                r * 4 + suit for r in range(13)
+                if r * 4 + suit not in dead_cards
+            }
 
             hand_ranks_in_suit = sorted(
                 [c // 4 for c in hand if c % 4 == suit], reverse=True
             )
             if hand_ranks_in_suit[0] == 12:  # ace
                 draws = draws | DrawType.NUT_FLUSH_DRAW
-                nut_outs += flush_outs
+                nut_out_cards |= flush_cards
             elif hand_ranks_in_suit[0] == 11:  # king
-                # Check if ace of this suit is on board
                 ace_on_board = any(c // 4 == 12 and c % 4 == suit for c in board)
                 if ace_on_board:
                     draws = draws | DrawType.NUT_FLUSH_DRAW
-                    nut_outs += flush_outs
+                    nut_out_cards |= flush_cards
                 else:
                     draws = draws | DrawType.SECOND_NUT_FLUSH_DRAW
             else:
                 draws = draws | DrawType.FLUSH_DRAW
-            outs += flush_outs
+            out_cards |= flush_cards
 
-    return draws, outs, nut_outs
+    return draws, out_cards, nut_out_cards
 
 
 def _check_straight_draws(
     hand: PLOHand, board: Board, dead_cards: set[int],
-) -> tuple[DrawType, int, int]:
-    """Check for straight draws. Returns (draw_type, outs, nut_outs)."""
+) -> tuple[DrawType, set[int], set[int]]:
+    """Check for straight draws. Returns (draw_type, out_cards, nut_out_cards)."""
     draws = DrawType.NONE
     all_ranks = set(c // 4 for c in hand) | set(c // 4 for c in board)
 
@@ -586,47 +600,59 @@ def _check_straight_draws(
     else:
         all_ranks_with_low = all_ranks
 
-    outs = 0
-    nut_outs_count = 0
-    needed_cards: set[int] = set()
+    out_cards: set[int] = set()
+    nut_out_cards: set[int] = set()
+    needed_ranks: set[int] = set()
+
+    # Track the highest straight each needed rank can complete (for nut classification)
+    best_straight_top: dict[int, int] = {}
 
     # Check each possible 5-card straight window
     for low in range(-1, 10):
         window = set(range(low, low + 5))
-        have = window & all_ranks_with_low
         need = window - all_ranks_with_low
 
         if len(need) == 1:
-            # One card away from a straight
             needed_rank = next(iter(need))
-            if needed_rank == -1:
-                needed_rank = 12  # ace for wheel
-            if needed_rank not in needed_cards:
-                needed_cards.add(needed_rank)
-                # Count available cards of this rank
-                cards_of_rank = sum(
-                    1 for c in range(needed_rank * 4, needed_rank * 4 + 4)
-                    if c not in dead_cards
-                )
-                outs += cards_of_rank
+            actual_rank = 12 if needed_rank == -1 else needed_rank
+            straight_top = low + 4
+            if actual_rank not in needed_ranks:
+                needed_ranks.add(actual_rank)
+                best_straight_top[actual_rank] = straight_top
+            else:
+                best_straight_top[actual_rank] = max(best_straight_top[actual_rank], straight_top)
+
+    # Collect actual card ints for each needed rank
+    for rank in needed_ranks:
+        for suit in range(4):
+            card = rank * 4 + suit
+            if card not in dead_cards:
+                out_cards.add(card)
+
+    total_outs = len(out_cards)
 
     # Classify the draw type based on total outs
-    if outs >= 13:
+    if total_outs >= 13:
         draws = DrawType.WRAP
-        nut_outs_count = outs  # wraps are often nut draws
-    elif outs >= 8:
-        # Could be OESD or double gutshot
-        if len(needed_cards) == 2:
+        nut_out_cards = set(out_cards)  # wraps are often nut draws
+    elif total_outs >= 8:
+        if len(needed_ranks) == 2:
             draws = DrawType.DOUBLE_GUTSHOT
         else:
             draws = DrawType.OESD
-        nut_outs_count = outs // 2  # approximate
-    elif outs >= 4:
+        # Approximate: higher-completing cards are more likely nut draws
+        for rank in needed_ranks:
+            if best_straight_top[rank] >= 8:  # T-high straight or better
+                for suit in range(4):
+                    card = rank * 4 + suit
+                    if card not in dead_cards:
+                        nut_out_cards.add(card)
+    elif total_outs >= 4:
         draws = DrawType.GUTSHOT
-    elif outs > 0:
+    elif total_outs > 0:
         draws = DrawType.GUTSHOT
 
-    return draws, outs, nut_outs_count
+    return draws, out_cards, nut_out_cards
 
 
 def _estimate_draw_equity(total_outs: int, board_cards: int) -> float:
