@@ -9,11 +9,31 @@ import math
 from dataclasses import dataclass
 from itertools import combinations
 
+import numpy as np
 import jax
 import jax.numpy as jnp
 
 from plo_engine.types import PLOHand, Board, Range
 from plo_engine.hand_evaluator import best_plo_hand
+
+
+def _prepare_range_arrays(
+    range_: Range, dead_cards: set[int],
+) -> tuple[np.ndarray, np.ndarray]:
+    """Pre-filter a range and build NumPy arrays for fast sampling.
+
+    Returns (hands_array, weights_array) where:
+      - hands_array: shape (N, 4) int array of card ints
+      - weights_array: shape (N,) float probabilities (sums to 1)
+    """
+    filtered = range_.remove_blockers(dead_cards)
+    if not filtered.hands:
+        return np.empty((0, 4), dtype=np.int32), np.empty(0, dtype=np.float64)
+    hands_list = list(filtered.hands.keys())
+    weights = np.array([filtered.hands[h] for h in hands_list], dtype=np.float64)
+    weights /= weights.sum()
+    hands_arr = np.array(hands_list, dtype=np.int32)
+    return hands_arr, weights
 
 # When total evaluations fall below this, use exhaustive enumeration
 ENUM_THRESHOLD = 1_000_000
@@ -152,36 +172,49 @@ def _mc_hand_vs_range(
     num_samples: int,
     rng_key: jax.Array,
 ) -> EquityResult:
-    """Monte Carlo equity estimation."""
+    """Monte Carlo equity estimation.
+
+    Uses NumPy for sampling (much faster than JAX for this loop-heavy task).
+    Pre-builds filtered range arrays once rather than per-sample.
+    """
     cards_to_come = 5 - len(board)
     wins = 0
     ties = 0
     total = 0
 
-    filtered_normalized = opponent_range.normalize()
+    # Pre-build filtered range arrays (one-time cost)
+    opp_hands_arr, opp_weights = _prepare_range_arrays(opponent_range, dead_cards)
+    if len(opp_hands_arr) == 0:
+        return EquityResult(1.0, 1.0, 0.0, 0.0, 0, None)
+
+    # Pre-compute remaining cards (excluding hero + board)
+    remaining_base = np.array(_remaining_cards(dead_cards), dtype=np.int32)
+
+    # Use NumPy RNG seeded from JAX key for reproducibility
+    seed = int(jax.random.randint(rng_key, (), 0, 2**31 - 1).item())
+    rng = np.random.RandomState(seed)
+
+    # Pre-sample all opponent hand indices at once
+    opp_indices = rng.choice(len(opp_hands_arr), size=num_samples, p=opp_weights)
 
     for i in range(num_samples):
-        key = jax.random.fold_in(rng_key, i)
-        k1, k2 = jax.random.split(key)
+        opp_hand = tuple(opp_hands_arr[opp_indices[i]])
 
-        # Sample opponent hand
-        try:
-            opp_hand = filtered_normalized.sample_hand(k1, dead_cards)
-        except ValueError:
-            continue
+        # Check no overlap with dead cards (hero's hand already excluded
+        # via _prepare_range_arrays, but board overlap possible on turn/river
+        # if opponent hand was filtered before board was set — shouldn't happen
+        # here since we filter on dead_cards which includes board)
 
-        # Sample remaining board cards
-        all_dead = dead_cards | set(opp_hand)
-        remaining = _remaining_cards(all_dead)
+        # Build remaining deck excluding opponent hand
+        opp_set = set(opp_hand)
+        remaining = [c for c in remaining_base if c not in opp_set]
 
         if cards_to_come > 0 and len(remaining) < cards_to_come:
             continue
 
         if cards_to_come > 0:
-            indices = jax.random.choice(
-                k2, len(remaining), shape=(cards_to_come,), replace=False
-            )
-            runout = tuple(remaining[int(idx)] for idx in indices)
+            runout_indices = rng.choice(len(remaining), size=cards_to_come, replace=False)
+            runout = tuple(remaining[j] for j in runout_indices)
             full_board = tuple(sorted(board + runout))
         else:
             full_board = board
@@ -231,27 +264,31 @@ def equity_range_vs_range(
     ties = 0
     total = 0
 
-    range_a_norm = range_a.remove_blockers(dead_cards_board).normalize()
-    range_b_norm = range_b.remove_blockers(dead_cards_board).normalize()
+    # Pre-build arrays for range A (filtered for board blockers)
+    hands_a, weights_a = _prepare_range_arrays(range_a, dead_cards_board)
+    if len(hands_a) == 0:
+        return EquityResult(0.5, 0.0, 0.0, 0.0, 0, None)
 
     cards_to_come = 5 - len(board)
 
-    for i in range(num_samples):
-        key = jax.random.fold_in(rng_key, i)
-        k1, k2, k3 = jax.random.split(key, 3)
+    seed = int(jax.random.randint(rng_key, (), 0, 2**31 - 1).item())
+    rng = np.random.RandomState(seed)
 
-        # Sample hand A
-        try:
-            hand_a = range_a_norm.sample_hand(k1, dead_cards_board)
-        except ValueError:
-            continue
+    # Pre-sample range A indices
+    a_indices = rng.choice(len(hands_a), size=num_samples, p=weights_a)
+
+    for i in range(num_samples):
+        hand_a = tuple(hands_a[a_indices[i]])
         dead_a = dead_cards_board | set(hand_a)
 
-        # Sample hand B (must not conflict with hand A)
-        try:
-            hand_b = range_b_norm.sample_hand(k2, dead_a)
-        except ValueError:
+        # Build filtered range B (must exclude hand A's cards)
+        # This per-sample filtering is unavoidable but uses NumPy
+        hands_b, weights_b = _prepare_range_arrays(range_b, dead_a)
+        if len(hands_b) == 0:
             continue
+
+        b_idx = rng.choice(len(hands_b), p=weights_b)
+        hand_b = tuple(hands_b[b_idx])
         all_dead = dead_a | set(hand_b)
 
         # Sample runout
@@ -260,10 +297,8 @@ def equity_range_vs_range(
             continue
 
         if cards_to_come > 0:
-            indices = jax.random.choice(
-                k3, len(remaining), shape=(cards_to_come,), replace=False
-            )
-            runout = tuple(remaining[int(idx)] for idx in indices)
+            r_indices = rng.choice(len(remaining), size=cards_to_come, replace=False)
+            runout = tuple(remaining[j] for j in r_indices)
             full_board = tuple(sorted(board + runout))
         else:
             full_board = board
@@ -296,6 +331,14 @@ def equity_range_vs_range(
     )
 
 
+def _is_uniform_range(r: Range) -> bool:
+    """Check if a range has uniform weights (all 1.0), like Range.full()."""
+    if not r.hands:
+        return False
+    first = next(iter(r.hands.values()))
+    return all(w == first for w in r.hands.values())
+
+
 def equity_multiway(
     hands_or_ranges: list[PLOHand | Range],
     board: Board,
@@ -303,7 +346,12 @@ def equity_multiway(
     num_samples: int = 10_000,
     rng_key: jax.Array | None = None,
 ) -> MultiplayerEquityResult:
-    """Equity for a multiway pot (2-6 players)."""
+    """Equity for a multiway pot (2-6 players).
+
+    Uses NumPy for all sampling. For uniform ranges (Range.full()), deals
+    random cards directly from the remaining deck rather than filtering the
+    full range per-sample — this is orders of magnitude faster for multiway.
+    """
     if rng_key is None:
         rng_key = jax.random.PRNGKey(0)
 
@@ -315,30 +363,89 @@ def equity_multiway(
     cards_to_come = 5 - len(board)
     dead_board = set(board)
 
-    for i in range(num_samples):
-        key = jax.random.fold_in(rng_key, i)
-        keys = jax.random.split(key, n_players + 1)
+    seed = int(jax.random.randint(rng_key, (), 0, 2**31 - 1).item())
+    rng = np.random.RandomState(seed)
 
-        # Sample concrete hands for each player
+    # Classify each player as fixed hand, uniform range, or weighted range
+    player_types: list[str] = []  # "fixed", "uniform", "weighted"
+    for hor in hands_or_ranges:
+        if isinstance(hor, tuple):
+            player_types.append("fixed")
+        elif _is_uniform_range(hor):
+            player_types.append("uniform")
+        else:
+            player_types.append("weighted")
+
+    # Pre-build arrays for the first weighted range player
+    first_weighted_idx = None
+    first_weighted_arrays: tuple[np.ndarray, np.ndarray] | None = None
+    first_weighted_pre_indices: np.ndarray | None = None
+
+    for j, ptype in enumerate(player_types):
+        if ptype == "weighted":
+            pre_dead = set(dead_board)
+            all_prior_fixed = True
+            for k in range(j):
+                if player_types[k] == "fixed":
+                    pre_dead |= set(hands_or_ranges[k])
+                else:
+                    all_prior_fixed = False
+                    break
+            if all_prior_fixed:
+                first_weighted_idx = j
+                hands_arr, weights_arr = _prepare_range_arrays(
+                    hands_or_ranges[j], pre_dead,
+                )
+                first_weighted_arrays = (hands_arr, weights_arr)
+                if len(hands_arr) > 0:
+                    first_weighted_pre_indices = rng.choice(
+                        len(hands_arr), size=num_samples, p=weights_arr,
+                    )
+            break
+
+    for i in range(num_samples):
         dead = set(dead_board)
         concrete_hands: list[PLOHand] = []
         valid = True
 
         for j, hor in enumerate(hands_or_ranges):
-            if isinstance(hor, tuple):
-                # Specific hand
-                if any(c in dead for c in hor):
+            ptype = player_types[j]
+
+            if ptype == "fixed":
+                hand_tuple = hor  # type: ignore
+                if any(c in dead for c in hand_tuple):
                     valid = False
                     break
-                concrete_hands.append(hor)
-                dead |= set(hor)
-            else:
-                # Range — sample
-                try:
-                    h = hor.sample_hand(keys[j], dead)
-                except ValueError:
+                concrete_hands.append(hand_tuple)
+                dead |= set(hand_tuple)
+
+            elif ptype == "uniform":
+                # Fast path: deal 4 random cards from remaining deck
+                remaining = [c for c in range(52) if c not in dead]
+                if len(remaining) < 4:
                     valid = False
                     break
+                idxs = rng.choice(len(remaining), size=4, replace=False)
+                h = tuple(sorted(remaining[k] for k in idxs))
+                concrete_hands.append(h)
+                dead |= set(h)
+
+            else:  # weighted
+                if (j == first_weighted_idx
+                        and first_weighted_arrays is not None
+                        and first_weighted_pre_indices is not None):
+                    hands_arr, _ = first_weighted_arrays
+                    if len(hands_arr) == 0:
+                        valid = False
+                        break
+                    h = tuple(hands_arr[first_weighted_pre_indices[i]])
+                else:
+                    hands_arr, weights_arr = _prepare_range_arrays(hor, dead)
+                    if len(hands_arr) == 0:
+                        valid = False
+                        break
+                    idx = rng.choice(len(hands_arr), p=weights_arr)
+                    h = tuple(hands_arr[idx])
                 concrete_hands.append(h)
                 dead |= set(h)
 
@@ -351,10 +458,8 @@ def equity_multiway(
             continue
 
         if cards_to_come > 0:
-            indices = jax.random.choice(
-                keys[-1], len(remaining), shape=(cards_to_come,), replace=False
-            )
-            runout = tuple(remaining[int(idx)] for idx in indices)
+            r_indices = rng.choice(len(remaining), size=cards_to_come, replace=False)
+            runout = tuple(remaining[k] for k in r_indices)
             full_board = tuple(sorted(board + runout))
         else:
             full_board = board
@@ -380,7 +485,6 @@ def equity_multiway(
         else:
             eq = (wins[j] + ties[j]) / total
             win_pct = wins[j] / total
-            # For multiway, tie_pct represents split pot scenarios
             tie_pct_j = ties[j] / total
             loss_pct = 1.0 - win_pct - tie_pct_j
             ci_half = 1.96 * math.sqrt(eq * (1 - eq) / total) if total > 0 else 0
